@@ -6,18 +6,14 @@
 #include <thread>
 #include <vector>
 // Internal
-#include "triangle.hpp"
+#include "Mesh.hpp"
 // 3d-Party_Libs
 #include <SDL2/SDL.h>
-
-#define N_POINTS (9 * 9 * 9)
-#define N_MESH_VERTICES 8
-#define N_MESH_FACES (6 * 2)
 
 class Renderer {
    public:
     bool initializeWindow(bool fullscreen = false);
-    void setupWindow();
+    void setupWindow(const std::string& obj_file_path);
     void destroyWindow();
     void process_input();
     bool getWindowState();
@@ -31,6 +27,8 @@ class Renderer {
     void drawLine(float x0, float y0, float x1, float y1, uint32_t color);
     void renderColorBuffer();
     void clearColorBuffer(uint32_t color);
+    void loadObjFileData(const std::string& obj_file_path);
+    void loadCubeMesh();
     math::Vector<float, 2> project(math::Vector<float, 3> point);
 
    private:
@@ -58,41 +56,12 @@ class Renderer {
         std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(nullptr, SDL_DestroyTexture);
 
     std::thread th;
-
-    math::Vector<float, 3> camera_position = {0, 0, -5};
-    math::Vector<float, 3> cube_rotation = {0.0, 0.0, 0.0};
-
-    std::array<Triangle, N_MESH_FACES> triangles_to_render;
-    std::array<math::Vector<float, 3>, N_MESH_VERTICES> mesh_vertices = {{
-        {-1.f, -1.f, -1.f},  // 1
-        {-1.f, 1.f, -1.f},   // 2
-        {1.f, 1.f, -1.f},    // 3
-        {1.f, -1.f, -1.f},   // 4
-        {1.f, 1.f, 1.f},     // 5
-        {1.f, -1.f, 1.f},    // 6
-        {-1.f, 1.f, 1.f},    // 7
-        {-1.f, -1.f, 1.f}    // 8
-    }};
-    // this conatiner values are indecies
-    std::array<Face, N_MESH_FACES> mesh_faces = {
-        {            // front
-         {1, 2, 3},  // triangle 1 of front face - clockwise order
-         {1, 3, 4},  // triangle 2 of front face
-         // right
-         {4, 3, 5},
-         {4, 5, 6},
-         // back
-         {6, 5, 7},
-         {6, 7, 8},
-         // left
-         {8, 7, 2},
-         {8, 2, 1},
-         // top
-         {2, 7, 5},
-         {2, 5, 3},
-         // bottom
-         {6, 8, 1},
-         {6, 1, 4}}};
-
     std::vector<uint32_t> color_buffer;
+    std::vector<Triangle> triangles_to_render;
+    std::vector<Triangle> last_triangles_to_render;
+    Mesh mesh;
+
+    math::Vector<float, 3> camera_position = {0, 0, 0};
+    math::Vector<float, 3> rotation = {0.0, 0.0, 0.0};
+
 };

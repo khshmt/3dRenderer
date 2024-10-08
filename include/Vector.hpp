@@ -8,8 +8,8 @@ template <typename T, size_t N>
 struct Vector {
    public:
     Vector() : _x(0), _y(0), _z(0) {}
-    Vector(T x, T y) : _x(x), _y(y) { static_assert(N == 2); }
-    Vector(T x, T y, T z) : _x(x), _y(y), _z(z) { static_assert(N == 3); }
+    // Vector(T x, T y) : _x(x), _y(y) { static_assert(N == 2 || N == 3); } //try assert instead of static_assert
+    Vector(T x, T y, T z = 0) : _x(x), _y(y), _z(z) { static_assert(N == 2 || N == 3); }
 
     T& x() { return _x; }
     T& y() { return _y; }
@@ -44,6 +44,79 @@ struct Vector {
         _x = x * cos(angle) - y * sin(angle);
         _y = x * sin(angle) + y * cos(angle);
         //_z component is the same
+    }
+
+    float magnitude() {
+        if (N == 2)
+            return std::sqrt(_x * _x + _y * _y);
+        else
+            return std::sqrt(_x * _x + _y * _y + _z * _z);
+    }
+
+    Vector<T, N> Add(const Vector<T, N>& otherVec) {
+            _x = _x + otherVec.x(); 
+            _y = _y + otherVec.y();
+        if (N == 3)
+            _z = _z + otherVec.z();
+    }
+
+    Vector<T, N> operator+(Vector<T, N>& other) {
+        if(N == 2)
+            return {(_x + other.x()), (_y + other.y())};
+        if(N == 3)
+            return {(_x + other.x()), (_y + other.y()), (_z + other.z())};
+    }
+
+    void Subtract(Vector<T, N>& otherVec) {
+            _x = _x - otherVec.x(); 
+            _y = _y - otherVec.y();
+        if (N == 3)
+            _z = _z - otherVec.z();
+    }
+
+    Vector<T, N> operator-(Vector<T, N>& other) {
+        if(N == 2)
+            return {(_x - other.x()), (_y - other.y())};
+        if(N == 3)
+            return {(_x - other.x()), (_y - other.y()), (_z - other.z())};
+    }
+
+    void scale(float factor) {
+        _x *= factor;
+        _y *= factor;
+        if(N == 3)
+            _z *= factor;
+    }
+
+    void divide(float factor) {
+        _x /= factor;
+        _y /= factor;
+        if(N == 3)
+            _z /= factor;
+    }
+
+    // cross product
+    Vector<T, 3> operator^(Vector<T, 3>& other) {
+        return {
+            (_y * other.z() - _z * other.y()), (_z * other.x() - _x * other.z()),
+                (_x * other.y() - _y * other.x())
+        };
+    }
+
+    // dot product
+    float operator*(Vector<T, N>& other) {
+        if (N == 2)
+            return _x * other.x() + _y * other.y();
+        if (N == 3)
+            return _x * other.x() + _y * other.y() + _z * other.z();
+    }
+
+    void normalize() {
+        auto mag = this->magnitude();
+        _x /= mag;
+        _y /= mag;
+        if (N == 3)
+            _z /= mag;
     }
 
    private:

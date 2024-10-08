@@ -41,13 +41,16 @@ bool Renderer::initializeWindow(bool fullscreen) {
     return true;
 }
 
-void Renderer::setupWindow() {
+void Renderer::setupWindow(const std::string& obj_file_path) {
     color_buffer.reserve(_width * _height);
 
     color_buffer_texture_ptr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
         SDL_CreateTexture(renderer_ptr.get(), SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                           _width, _height),
         SDL_DestroyTexture);
+
+    // loadCubeMesh();
+    loadObjFileData(obj_file_path);
 }
 
 void Renderer::drawPixel(int x, int y, uint32_t color) {
@@ -163,31 +166,56 @@ void Renderer::update() {
         previousFrameTime = SDL_GetTicks();
     }
     if (!pause) {
-        cube_rotation.x() += 0.01;
-        cube_rotation.y() += 0.01;
-        cube_rotation.z() += 0.01;
+        rotation.x() += 0.01;
+        rotation.y() += 0.01;
+        rotation.z() += 0.01;
 
-        int j{0};
-        for (auto face : mesh_faces) {
+        for (const auto& face : mesh.faces) {
             int i{0};
             std::array<math::Vector<float, 3>, 3> face_vertices;
-            face_vertices[0] = mesh_vertices[face.a - 1];
-            face_vertices[1] = mesh_vertices[face.b - 1];
-            face_vertices[2] = mesh_vertices[face.c - 1];
-            Triangle projected_triangle;
-            for (auto vertex : face_vertices) {
-                auto transformed_vertex = vertex;
-                transformed_vertex.rotateAroundX(cube_rotation.x());
-                transformed_vertex.rotateAroundY(cube_rotation.y());
-                transformed_vertex.rotateAroundZ(cube_rotation.z());
+            face_vertices[0] = mesh.vertices[face.a - 1];
+            face_vertices[1] = mesh.vertices[face.b - 1];
+            face_vertices[2] = mesh.vertices[face.c - 1];
+  
+            for (auto& vertex : face_vertices) {
+                vertex.rotateAroundX(rotation.x());
+                vertex.rotateAroundY(rotation.y());
+                vertex.rotateAroundZ(rotation.z());
+                vertex.z() += 5;
+            }
 
-                transformed_vertex.z() -= camera_position.z();
-                auto projected_point = project(transformed_vertex);
-                projected_point.x() += _width / 2;
-                projected_point.y() += _height / 2;
+            // triangle CUlling Test
+            {
+                auto vec_a = face_vertices[0];
+                auto vec_b = face_vertices[1];
+                auto vec_c = face_vertices[2];
+
+                // step1 calculate ab vector and ac vector
+                auto vec_ab = vec_b - vec_a;
+                auto vec_ac = vec_c - vec_a;
+
+                // step2 calculate the normal
+                auto vec_face_normal = vec_ab ^ vec_ac;
+                vec_face_normal.normalize();
+
+                //step3 find the camera ray (vector between camera origin and a point in the triangle)
+                auto vec_camera_ray = camera_position - vec_a;
+
+                //ste4 check how aligned the camera ray with face normal
+                if (vec_face_normal * vec_camera_ray < 0.0f)
+                    continue;
+            }
+
+            // loop over face vertecies to perform projection
+            Triangle projected_triangle;
+            for(const auto& vertex : face_vertices){
+                auto projected_point = project(vertex);
+                projected_point.x() += _width / 2; // translate
+                projected_point.y() += _height / 2; // translate
                 projected_triangle.points[i++] = projected_point;
             }
-            triangles_to_render[j++] = projected_triangle;
+            triangles_to_render.push_back(projected_triangle);
+            last_triangles_to_render = triangles_to_render;
         }
     }
 }
@@ -199,7 +227,8 @@ void Renderer::render() {
     clearColorBuffer(0xFF000000);
 
     drawGrid();
-    for (auto triangle : triangles_to_render) {
+        
+    for (auto triangle : last_triangles_to_render) {
         drawRect(triangle.points[0].x(), triangle.points[0].y(), 3, 3, 0xFFFFFF00);
         drawRect(triangle.points[1].x(), triangle.points[1].y(), 3, 3, 0xFFFFFF00);
         drawRect(triangle.points[2].x(), triangle.points[2].y(), 3, 3, 0xFFFFFF00);
@@ -211,9 +240,35 @@ void Renderer::render() {
         drawLine(triangle.points[2].x(), triangle.points[2].y(), triangle.points[0].x(),
                  triangle.points[0].y(), 0xFF00FF00);
     }
-
+    triangles_to_render.clear();
     renderColorBuffer();
     SDL_RenderPresent(renderer_ptr.get());
+}
+
+void Renderer::loadObjFileData(const std::string& obj_file_path) {
+    FILE* file;
+    file = fopen(obj_file_path.c_str(), "r");
+    char line[1024];
+
+    while (fgets(line, 1024, file)) {
+        // Vertex information
+        if (strncmp(line, "v ", 2) == 0) {
+            math::Vector<float, 3> vertex;
+            sscanf(line, "v %f %f %f", &vertex.x(), &vertex.y(), &vertex.z());
+            mesh.vertices.push_back(vertex);
+        }
+        // Face information
+        if (strncmp(line, "f ", 2) == 0) {
+            int vertex_indices[3];
+            int texture_indices[3];
+            int normal_indices[3];
+            sscanf(line, "f %d/%d/%d %d/%d/%d %d/%d/%d", &vertex_indices[0], &texture_indices[0],
+                   &normal_indices[0], &vertex_indices[1], &texture_indices[1], &normal_indices[1],
+                   &vertex_indices[2], &texture_indices[2], &normal_indices[2]);
+            Face face = {.a = vertex_indices[0], .b = vertex_indices[1], .c = vertex_indices[2]};
+            mesh.faces.push_back(face);
+        }
+    }
 }
 
 void Renderer::destroyWindow() {
