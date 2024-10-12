@@ -49,7 +49,6 @@ void Renderer::setupWindow(const std::string& obj_file_path) {
                           _width, _height),
         SDL_DestroyTexture);
 
-    // loadCubeMesh();
     loadObjFileData(obj_file_path);
 }
 
@@ -77,23 +76,138 @@ void Renderer::drawRect(int x, int y, int width, int height, uint32_t color) {
     }
 }
 
-void Renderer::drawLine(float x0, float y0, float x1, float y1, uint32_t color) {
-    // DDA (Digital Differential Analayzer) ALgorithm Approach
-    auto delta_x = x1 - x0;
-    auto delta_y = y1 - y0;
+void Renderer::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
+    int delta_x = (x1 - x0);
+    int delta_y = (y1 - y0);
 
-    auto side_length = fabs(delta_x) >= fabs(delta_y) ? fabs(delta_x) : fabs(delta_y);
+    int longest_side_length = (abs(delta_x) >= abs(delta_y)) ? abs(delta_x) : abs(delta_y);
 
-    auto x_inc = delta_x / (float)side_length;
-    auto y_inc = delta_y / (float)side_length;
+    float x_inc = delta_x / (float)longest_side_length;
+    float y_inc = delta_y / (float)longest_side_length;
 
-    // float current_x = x0;
-    // float current_y = y0;
+    float current_x = x0;
+    float current_y = y0;
 
-    for (int i{0}; i < side_length; ++i) {
-        drawPixel(round(x0), round(y0), color);
-        x0 += x_inc;
-        y0 += y_inc;
+    for (int i = 0; i <= longest_side_length; i++) {
+        drawPixel(round(current_x), round(current_y), color);
+        current_x += x_inc;
+        current_y += y_inc;
+    }
+}
+
+void Renderer::drawTriangle(Triangle& tri, uint32_t color) {
+    drawLine(tri.points[0].x(), tri.points[0].y(), tri.points[1].x(), tri.points[1].y(), color);
+    drawLine(tri.points[1].x(), tri.points[1].y(), tri.points[2].x(), tri.points[2].y(), color);
+    drawLine(tri.points[2].x(), tri.points[2].y(), tri.points[0].x(), tri.points[0].y(), color);
+}
+
+//   flat bottom triangle
+//
+//        (x0,y0)
+//          / \
+//         /   \
+//        /     \
+//       /       \
+//      /         \
+//  (x1,y1)------(x2,y2)
+void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, int x1, int y1, int x2,
+                                           int y2, uint32_t color) {
+    // Find the two slopes (two triangle legs)
+    float inv_slope_1 = (float)(x1 - x0) / (y1 - y0);
+    float inv_slope_2 = (float)(x2 - x0) / (y2 - y0);
+
+    // Start x_start and x_end from the top vertex (x0,y0)
+    float x_start = x0;
+    float x_end = x0;
+
+    // Loop all the scanlines from top to bottom
+    for (int y = y0; y <= y2; y++) {
+        drawLine(x_start, y, x_end, y, color);
+        x_start += inv_slope_1;
+        x_end += inv_slope_2;
+    }
+}
+
+//   flat top triangle
+//
+//  (x0,y0)------(x1,y1)
+//      \         /
+//       \       /
+//        \     /
+//         \   /
+//          \ /
+//        (x2,y2)
+void Renderer::rasterizeFlatTopTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
+                                        uint32_t color) {
+    // Find the two slopes (two triangle legs)
+    float inv_slope_1 = (float)(x2 - x0) / (y2 - y0);
+    float inv_slope_2 = (float)(x2 - x1) / (y2 - y1);
+
+    // Start x_start and x_end from the bottom vertex (x2,y2)
+    float x_start = x2;
+    float x_end = x2;
+
+    // Loop all the scanlines from bottom to top
+    for (int y = y2; y >= y0; y--) {
+        drawLine(x_start, y, x_end, y, color);
+        x_start -= inv_slope_1;
+        x_end -= inv_slope_2;
+    }
+}
+
+//
+//          (x0,y0)
+//            / \
+//           /   \
+//          /     \
+//         /       \
+//        /         \
+//   (x1,y1)------(Mx,My)
+//       \_           \
+//          \_         \
+//             \_       \
+//                \_     \
+//                   \    \
+//                     \_  \
+//                        \_\
+//                           \
+//                         (x2,y2)
+//
+void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color) {
+    auto [x0, y0, _]    = static_cast<std::tuple<int, int ,int>>(tri.points[0].get());
+    auto [x1, y1, __]   = static_cast<std::tuple<int, int ,int>>(tri.points[1].get());
+    auto [x2, y2, ___]  = static_cast<std::tuple<int, int ,int>>(tri.points[2].get());
+
+    // We need to sort the vertices by y-coordinate ascending (y0 < y1 < y2)
+    if (y0 > y1) {
+        std::swap(y0, y1);
+        std::swap(x0, x1);
+    }
+    if (y1 > y2) {
+        std::swap(y1, y2);
+        std::swap(x1, x2);
+    }
+    if (y0 > y1) {
+        std::swap(y0, y1);
+        std::swap(x0, x1);
+    }
+
+    if (y1 == y2) {
+        // Draw flat-bottom triangle
+        rasterizeFlatBottomTriangle(x0, y0, x1, y1, x2, y2, color);
+    } else if (y0 == y1) {
+        // Draw flat-top triangle
+        rasterizeFlatTopTriangle(x0, y0, x1, y1, x2, y2, color);
+    } else {
+        // Calculate the new vertex (Mx,My) using triangle similarity
+        int My = y1;
+        int Mx = (((x2 - x0) * (y1 - y0)) / (y2 - y0)) + x0;
+
+        // Draw flat-bottom triangle
+        rasterizeFlatBottomTriangle(x0, y0, x1, y1, Mx, My, color);
+
+        // Draw flat-top triangle
+        rasterizeFlatTopTriangle(x1, y1, Mx, My, x2, y2, color);
     }
 }
 
@@ -114,13 +228,14 @@ void Renderer::clearColorBuffer(uint32_t color) {
 }
 
 void Renderer::process_input() {
+    SDL_Event event;
     while (is_running) {
-        SDL_Event event;
         SDL_PollEvent(&event);
         switch (event.type) {
             case SDL_QUIT:
                 is_running = false;
                 break;
+
             case SDL_KEYDOWN:
                 if (event.key.keysym.sym == SDLK_ESCAPE)
                     is_running = false;
@@ -129,16 +244,38 @@ void Renderer::process_input() {
                 else
                     pause = false;
 
-                if (event.key.keysym.sym == SDLK_UP && up == false)
-                    up = true;
-                else
-                    up = false;
+                if (event.key.keysym.sym == SDLK_c && _enableFaceCulling == false)
+                    _enableFaceCulling = true;
 
-                if (event.key.keysym.sym == SDLK_LEFT && left == false)
-                    left = true;
-                else
-                    left = false;
+                if (event.key.keysym.sym == SDLK_d && _enableFaceCulling == true)
+                    _enableFaceCulling = false;
+
+                if(event.key.keysym.sym == SDLK_1) {
+                    _wireframeModel = true;
+                    _VerticesModel = true;
+                    _raterizeModel = false;
+                }
+
+                if(event.key.keysym.sym == SDLK_2) {
+                    _wireframeModel = true;
+                    _VerticesModel = false;
+                    _raterizeModel = false;
+                }
+
+                if(event.key.keysym.sym == SDLK_3) {
+                    _wireframeModel = false;
+                    _VerticesModel = false;
+                    _raterizeModel = true;
+                }
+
+                if(event.key.keysym.sym == SDLK_4) {
+                    _wireframeModel = true;
+                    _VerticesModel = false;
+                    _raterizeModel = true;
+                }
+
                 break;
+
             default:
                 break;
         }
@@ -184,8 +321,8 @@ void Renderer::update() {
                 vertex.z() += 5;
             }
 
-            // triangle CUlling Test
-            {
+            // face CUlling Test
+            if(_enableFaceCulling){
                 auto vec_a = face_vertices[0];
                 auto vec_b = face_vertices[1];
                 auto vec_c = face_vertices[2];
@@ -227,22 +364,28 @@ void Renderer::render() {
     clearColorBuffer(0xFF000000);
 
     drawGrid();
-        
-    for (auto triangle : last_triangles_to_render) {
-        drawRect(triangle.points[0].x(), triangle.points[0].y(), 3, 3, 0xFFFFFF00);
-        drawRect(triangle.points[1].x(), triangle.points[1].y(), 3, 3, 0xFFFFFF00);
-        drawRect(triangle.points[2].x(), triangle.points[2].y(), 3, 3, 0xFFFFFF00);
 
-        drawLine(triangle.points[0].x(), triangle.points[0].y(), triangle.points[1].x(),
-                 triangle.points[1].y(), 0xFF00FF00);
-        drawLine(triangle.points[1].x(), triangle.points[1].y(), triangle.points[2].x(),
-                 triangle.points[2].y(), 0xFF00FF00);
-        drawLine(triangle.points[2].x(), triangle.points[2].y(), triangle.points[0].x(),
-                 triangle.points[0].y(), 0xFF00FF00);
+    for (auto& triangle : last_triangles_to_render) {
+        if (_VerticesModel) {
+            drawRect(triangle.points[0].x(), triangle.points[0].y(), 3, 3, 0xFFFF0000);
+            drawRect(triangle.points[1].x(), triangle.points[1].y(), 3, 3, 0xFFFF0000);
+            drawRect(triangle.points[2].x(), triangle.points[2].y(), 3, 3, 0xFFFF0000);
+        }
+        if (_raterizeModel) {
+            rasterizeTriangle(triangle, 0xFFFFFFFF);
+        }
+        if (_wireframeModel) {
+            uint32_t color;
+            if (_raterizeModel)
+                color = 0xFF000000;
+            else
+                color = 0xFF00FF00;
+            drawTriangle(triangle, color);
+        }
     }
-    triangles_to_render.clear();
     renderColorBuffer();
     SDL_RenderPresent(renderer_ptr.get());
+    triangles_to_render.clear();
 }
 
 void Renderer::loadObjFileData(const std::string& obj_file_path) {

@@ -2,6 +2,7 @@
 #include <math.h>
 #include <cstdlib>
 #include <stdexcept>
+#include <tuple>
 
 namespace math {
 template <typename T, size_t N>
@@ -44,6 +45,13 @@ struct Vector {
         _x = x * cos(angle) - y * sin(angle);
         _y = x * sin(angle) + y * cos(angle);
         //_z component is the same
+    }
+
+    std::tuple<T, T, T> get() {
+        if (N == 3)
+            return {x(), y(), z()};
+        if (N == 2)
+            return {x(), y(), 0.f};
     }
 
     float magnitude() {

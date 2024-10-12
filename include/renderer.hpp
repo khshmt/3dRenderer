@@ -5,6 +5,7 @@
 #include <memory>
 #include <thread>
 #include <vector>
+#include <algorithm>
 // Internal
 #include "Mesh.hpp"
 // 3d-Party_Libs
@@ -24,18 +25,24 @@ class Renderer {
     void drawGrid();
     void drawPixel(int x, int y, uint32_t color);
     void drawRect(int x, int y, int width, int height, uint32_t color);
-    void drawLine(float x0, float y0, float x1, float y1, uint32_t color);
+    void drawLine(int x0, int y0, int x1, int y1, uint32_t color);
+    void drawTriangle(Triangle& tri, uint32_t color);
+    void rasterizeTriangle(Triangle& tri, uint32_t color);
+    void rasterizeFlatBottomTriangle(int x0 , int y0, int x1, int y1, int x2, int y2, uint32_t color = 0xFFFF0000);
+    void rasterizeFlatTopTriangle(int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color = 0xFFFF0000);
     void renderColorBuffer();
     void clearColorBuffer(uint32_t color);
     void loadObjFileData(const std::string& obj_file_path);
-    void loadCubeMesh();
     math::Vector<float, 2> project(math::Vector<float, 3> point);
 
    private:
     std::atomic_bool is_running = false;
     std::atomic_bool pause{false};
-    std::atomic_bool left{false};
-    std::atomic_bool up{false};
+    std::atomic_bool _enableFaceCulling{false};
+
+    std::atomic_bool _wireframeModel{true};
+    std::atomic_bool _VerticesModel{false};
+    std::atomic_bool _raterizeModel{false};
 
     bool firstFrame{true};
 
