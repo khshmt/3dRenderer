@@ -1,0 +1,2 @@
+add_executable(RendererBenchmark renderer_benchmark.cpp)
+target_link_libraries(RendererBenchmark PRIVATE Renderer benchmark::benchmark benchmark::benchmark_main)

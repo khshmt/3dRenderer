@@ -3,6 +3,7 @@
 #include <memory>
 // Internal
 #include <renderer.hpp>
+#include "timer.hpp"
 
 int main(int argc, char* argv[]) {
     if (!argv[1]) {
@@ -15,13 +16,14 @@ int main(int argc, char* argv[]) {
             renderer.setupWindow(argv[1]);
             // Game Loop
             while (renderer.getWindowState()) {
-                // renderer.process_input();
+                Timer timer;
+                renderer.process_input();
                 renderer.update();
                 renderer.render();
             }
             renderer.destroyWindow();
-            std::cout << sizeof(renderer) << '\n';
         }
+        std::cout << sizeof(renderer) << '\n';
     }
 
     return 0;

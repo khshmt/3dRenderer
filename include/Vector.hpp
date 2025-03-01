@@ -1,5 +1,5 @@
 #pragma once
-#include <math.h>
+#include <cmath>
 #include <cstdlib>
 #include <stdexcept>
 #include <tuple>
@@ -8,7 +8,7 @@ namespace math {
 template <typename T, size_t N>
 struct Vector {
    public:
-    Vector() : _x(0), _y(0), _z(0) {}
+    constexpr Vector() noexcept : _x(0), _y(0), _z(0) {}
     // Vector(T x, T y) : _x(x), _y(y) { static_assert(N == 2 || N == 3); } //try assert instead of static_assert
     Vector(T x, T y, T z = 0) : _x(x), _y(y), _z(z) { static_assert(N == 2 || N == 3); }
 

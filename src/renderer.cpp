@@ -2,6 +2,8 @@
 #include <iostream>
 //INTERNAL
 #include <renderer.hpp>
+#include "timer.hpp"
+
 
 bool Renderer::initializeWindow(bool fullscreen) {
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
@@ -34,15 +36,14 @@ bool Renderer::initializeWindow(bool fullscreen) {
         return false;
     }
     if (fullscreen) {
-        SDL_SetWindowFullscreen(window_ptr.get(), SDL_WINDOW_FULLSCREEN);
+        SDL_SetWindowFullscreen(window_ptr.get(), SDL_WINDOW_MAXIMIZED);
     }
-    is_running = true;
-    th = std::thread([this]() { process_input(); });
-    return true;
+
+    return is_running = true;
 }
 
 void Renderer::setupWindow(const std::string& obj_file_path) {
-    color_buffer.reserve(_width * _height);
+    color_buffer.resize(_width * _height);
 
     color_buffer_texture_ptr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
         SDL_CreateTexture(renderer_ptr.get(), SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
@@ -229,56 +230,54 @@ void Renderer::clearColorBuffer(uint32_t color) {
 
 void Renderer::process_input() {
     SDL_Event event;
-    while (is_running) {
-        SDL_PollEvent(&event);
-        switch (event.type) {
-            case SDL_QUIT:
+    SDL_PollEvent(&event);
+    switch (event.type) {
+        case SDL_QUIT:
+            is_running = false;
+            break;
+
+        case SDL_KEYDOWN:
+            if (event.key.keysym.sym == SDLK_ESCAPE)
                 is_running = false;
-                break;
+            if (event.key.keysym.sym == SDLK_SPACE && pause == false)
+                pause = true;
+            else
+                pause = false;
 
-            case SDL_KEYDOWN:
-                if (event.key.keysym.sym == SDLK_ESCAPE)
-                    is_running = false;
-                if (event.key.keysym.sym == SDLK_SPACE && pause == false)
-                    pause = true;
-                else
-                    pause = false;
+            if (event.key.keysym.sym == SDLK_c && _enableFaceCulling == false)
+                _enableFaceCulling = true;
 
-                if (event.key.keysym.sym == SDLK_c && _enableFaceCulling == false)
-                    _enableFaceCulling = true;
+            if (event.key.keysym.sym == SDLK_d && _enableFaceCulling == true)
+                _enableFaceCulling = false;
 
-                if (event.key.keysym.sym == SDLK_d && _enableFaceCulling == true)
-                    _enableFaceCulling = false;
+            if (event.key.keysym.sym == SDLK_1) {
+                _wireframeModel = true;
+                _VerticesModel = true;
+                _raterizeModel = false;
+            }
 
-                if(event.key.keysym.sym == SDLK_1) {
-                    _wireframeModel = true;
-                    _VerticesModel = true;
-                    _raterizeModel = false;
-                }
+            if (event.key.keysym.sym == SDLK_2) {
+                _wireframeModel = true;
+                _VerticesModel = false;
+                _raterizeModel = false;
+            }
 
-                if(event.key.keysym.sym == SDLK_2) {
-                    _wireframeModel = true;
-                    _VerticesModel = false;
-                    _raterizeModel = false;
-                }
+            if (event.key.keysym.sym == SDLK_3) {
+                _wireframeModel = false;
+                _VerticesModel = false;
+                _raterizeModel = true;
+            }
 
-                if(event.key.keysym.sym == SDLK_3) {
-                    _wireframeModel = false;
-                    _VerticesModel = false;
-                    _raterizeModel = true;
-                }
+            if (event.key.keysym.sym == SDLK_4) {
+                _wireframeModel = true;
+                _VerticesModel = false;
+                _raterizeModel = true;
+            }
 
-                if(event.key.keysym.sym == SDLK_4) {
-                    _wireframeModel = true;
-                    _VerticesModel = false;
-                    _raterizeModel = true;
-                }
+            break;
 
-                break;
-
-            default:
-                break;
-        }
+        default:
+            break;
     }
 }
 
@@ -286,7 +285,7 @@ bool Renderer::getWindowState() {
     return is_running;
 }
 
-math::Vector<float, 2> Renderer::project(math::Vector<float, 3> point) {
+math::Vector<float, 2> Renderer::project(math::Vector<float, 3>& point) {
     // this projection is perspective projection if you want isometric do not divide by the z-component
     return {(fov_factor * point.x()) / point.z(), (fov_factor * point.y()) / point.z()};
 }
@@ -313,7 +312,7 @@ void Renderer::update() {
             face_vertices[0] = mesh.vertices[face.a - 1];
             face_vertices[1] = mesh.vertices[face.b - 1];
             face_vertices[2] = mesh.vertices[face.c - 1];
-  
+            
             for (auto& vertex : face_vertices) {
                 vertex.rotateAroundX(rotation.x());
                 vertex.rotateAroundY(rotation.y());
@@ -345,7 +344,7 @@ void Renderer::update() {
 
             // loop over face vertecies to perform projection
             Triangle projected_triangle;
-            for(const auto& vertex : face_vertices){
+            for(auto& vertex : face_vertices){
                 auto projected_point = project(vertex);
                 projected_point.x() += _width / 2; // translate
                 projected_point.y() += _height / 2; // translate
@@ -389,15 +388,21 @@ void Renderer::render() {
 }
 
 void Renderer::loadObjFileData(const std::string& obj_file_path) {
-    FILE* file;
-    file = fopen(obj_file_path.c_str(), "r");
+    FILE* file = fopen(obj_file_path.c_str(), "r");
+    if (!file) {
+        std::cerr << "Error opening file: " << obj_file_path << '\n';
+        return;
+    }
     char line[1024];
 
     while (fgets(line, 1024, file)) {
         // Vertex information
         if (strncmp(line, "v ", 2) == 0) {
             math::Vector<float, 3> vertex;
-            sscanf(line, "v %f %f %f", &vertex.x(), &vertex.y(), &vertex.z());
+            if (sscanf(line, "v %f %f %f", &vertex.x(), &vertex.y(), &vertex.z()) != 3) {
+                std::cerr << "Error parsing vertex line: " << line << '\n';
+                continue;
+            }
             mesh.vertices.push_back(vertex);
         }
         // Face information
@@ -405,18 +410,20 @@ void Renderer::loadObjFileData(const std::string& obj_file_path) {
             int vertex_indices[3];
             int texture_indices[3];
             int normal_indices[3];
-            sscanf(line, "f %d/%d/%d %d/%d/%d %d/%d/%d", &vertex_indices[0], &texture_indices[0],
-                   &normal_indices[0], &vertex_indices[1], &texture_indices[1], &normal_indices[1],
-                   &vertex_indices[2], &texture_indices[2], &normal_indices[2]);
+            if (sscanf(line, "f %d/%d/%d %d/%d/%d %d/%d/%d", &vertex_indices[0],
+                       &texture_indices[0], &normal_indices[0], &vertex_indices[1],
+                       &texture_indices[1], &normal_indices[1], &vertex_indices[2],
+                       &texture_indices[2], &normal_indices[2]) != 9) {
+                std::cerr << "Error parsing face line: " << line << '\n';
+                continue;
+            }
             Face face = {.a = vertex_indices[0], .b = vertex_indices[1], .c = vertex_indices[2]};
             mesh.faces.push_back(face);
         }
     }
+    fclose(file);
 }
 
 void Renderer::destroyWindow() {
-    if (th.joinable()) {
-        th.join();
-    }
     // SDL_Quit();
 }

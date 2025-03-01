@@ -11,6 +11,7 @@ struct Face {
     int a;
     int b;
     int c;
+    uint32_t color;
 };
 
 //stores the actual vertex values x and y

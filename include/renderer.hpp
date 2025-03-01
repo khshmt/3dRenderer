@@ -1,15 +1,14 @@
 #pragma once
 // STL
-#include <array>
 #include <atomic>
 #include <memory>
 #include <thread>
 #include <vector>
-#include <algorithm>
 // Internal
 #include "Mesh.hpp"
 // 3d-Party_Libs
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 class Renderer {
    public:
@@ -33,7 +32,7 @@ class Renderer {
     void renderColorBuffer();
     void clearColorBuffer(uint32_t color);
     void loadObjFileData(const std::string& obj_file_path);
-    math::Vector<float, 2> project(math::Vector<float, 3> point);
+    math::Vector<float, 2> project(math::Vector<float, 3>& point);
 
    private:
     std::atomic_bool is_running = false;
@@ -62,7 +61,6 @@ class Renderer {
     std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)> color_buffer_texture_ptr =
         std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(nullptr, SDL_DestroyTexture);
 
-    std::thread th;
     std::vector<uint32_t> color_buffer;
     std::vector<Triangle> triangles_to_render;
     std::vector<Triangle> last_triangles_to_render;
