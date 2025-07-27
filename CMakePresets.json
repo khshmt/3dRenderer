@@ -32,7 +32,7 @@
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": {
           "type": "FILEPATH",
-          "value": "C:\\Data\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          "value": "C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
         },
         "CMAKE_C_COMPILER": "cl",
         "CMAKE_CXX_COMPILER": "cl"

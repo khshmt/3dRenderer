@@ -4,17 +4,25 @@
 #include <stdexcept>
 #include <tuple>
 
-namespace math {
+namespace {
 template <typename T, size_t N>
-struct Vector {
-   public:
-    constexpr Vector() noexcept : _x(0), _y(0), _z(0) {}
-    // Vector(T x, T y) : _x(x), _y(y) { static_assert(N == 2 || N == 3); } //try assert instead of static_assert
-    Vector(T x, T y, T z = 0) : _x(x), _y(y), _z(z) { static_assert(N == 2 || N == 3); }
+struct vector {
+public:
+    constexpr vector() noexcept : _x(0), _y(0), _z(0) {}
+    vector(T x, T y, T z = 0) : _x(x), _y(y), _z(z) { static_assert(N == 2 || N == 3); }
 
     T& x() { return _x; }
     T& y() { return _y; }
     T& z() {
+        if (N == 2) {
+            throw std::invalid_argument("2D vectors have no z component.");
+        }
+        return _z;
+    }
+
+    T x() const { return _x; }
+    T y() const { return _y; }
+    T z() const {
         if (N == 2) {
             throw std::invalid_argument("2D vectors have no z component.");
         }
@@ -61,58 +69,56 @@ struct Vector {
             return std::sqrt(_x * _x + _y * _y + _z * _z);
     }
 
-    Vector<T, N> Add(const Vector<T, N>& otherVec) {
-            _x = _x + otherVec.x(); 
-            _y = _y + otherVec.y();
+    vector<T, N> Add(const vector<T, N>& otherVec) {
+        _x = _x + otherVec.x();
+        _y = _y + otherVec.y();
         if (N == 3)
             _z = _z + otherVec.z();
     }
 
-    Vector<T, N> operator+(Vector<T, N>& other) {
-        if(N == 2)
+    vector<T, N> operator+(vector<T, N>& other) {
+        if (N == 2)
             return {(_x + other.x()), (_y + other.y())};
-        if(N == 3)
+        if (N == 3)
             return {(_x + other.x()), (_y + other.y()), (_z + other.z())};
     }
 
-    void Subtract(Vector<T, N>& otherVec) {
-            _x = _x - otherVec.x(); 
-            _y = _y - otherVec.y();
+    void Subtract(vector<T, N>& otherVec) {
+        _x = _x - otherVec.x();
+        _y = _y - otherVec.y();
         if (N == 3)
             _z = _z - otherVec.z();
     }
 
-    Vector<T, N> operator-(Vector<T, N>& other) {
-        if(N == 2)
+    vector<T, N> operator-(vector<T, N>& other) {
+        if (N == 2)
             return {(_x - other.x()), (_y - other.y())};
-        if(N == 3)
+        if (N == 3)
             return {(_x - other.x()), (_y - other.y()), (_z - other.z())};
     }
 
     void scale(float factor) {
         _x *= factor;
         _y *= factor;
-        if(N == 3)
+        if (N == 3)
             _z *= factor;
     }
 
     void divide(float factor) {
         _x /= factor;
         _y /= factor;
-        if(N == 3)
+        if (N == 3)
             _z /= factor;
     }
 
     // cross product
-    Vector<T, 3> operator^(Vector<T, 3>& other) {
-        return {
-            (_y * other.z() - _z * other.y()), (_z * other.x() - _x * other.z()),
-                (_x * other.y() - _y * other.x())
-        };
+    vector<T, 3> operator^(vector<T, 3>& other) {
+        return {(_y * other.z() - _z * other.y()), (_z * other.x() - _x * other.z()),
+                (_x * other.y() - _y * other.x())};
     }
 
     // dot product
-    float operator*(Vector<T, N>& other) {
+    float operator*(vector<T, N>& other) {
         if (N == 2)
             return _x * other.x() + _y * other.y();
         if (N == 3)
@@ -127,9 +133,9 @@ struct Vector {
             _z /= mag;
     }
 
-   private:
+private:
     T _x{0};
     T _y{0};
     T _z{0};
 };
-}  // namespace math
+}  // namespace

@@ -3,25 +3,35 @@
 #include <array>
 #include <execution>
 #include <numeric>
+#include <immintrin.h>
+#include "renderer.hpp"
+#include "version2/vectorclass.h"
 
-static void sequential(benchmark::State& state) {
-    std::vector<int> arr(1 << 30);
-    // Code inside this loop is measured repeatedly
+Renderer renderer;
+
+static void SIMDVectorAddition(benchmark::State& state) {
+    Vec32uc a(10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13, 10,
+              11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13);
+    Vec32uc b(10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13, 10,
+              11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13);
     for (auto _ : state) {
-        auto sum = std::reduce(std::begin(arr), std::end(arr), 0, std::plus<>{});
-        BENCHMARK_DONT_OPTIMIZE(sum);
+        Vec32uc c = a + b;  // Vector addition using VectorClass
     }
 }
-BENCHMARK(sequential);
+BENCHMARK(SIMDVectorAddition);
 
-static void paralle(benchmark::State& state) {
-    std::vector<int> arr(1 << 30);
+static void vectorAddition(benchmark::State& state) {
+    std::vector<int> a{10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13,
+                       10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13};
+    std::vector<int> b{10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12,
+                       13, 10, 11, 12, 13, 10, 11, 12, 13, 10, 11, 12, 13};
     for (auto _ : state) {
-        auto sum = std::reduce(std::execution::par_unseq, std::begin(arr), std::end(arr), 0,
-                               std::plus<>{});
-        BENCHMARK_DONT_OPTIMIZE(sum);
+        std::vector<int> c;
+        for (auto i{0}; i < a.size(); ++i) {
+            c.push_back(a[i] + b[i]);  // Simple vector addition
+        }
     }
 }
-BENCHMARK(paralle);
+BENCHMARK(vectorAddition);
 
 BENCHMARK_MAIN();

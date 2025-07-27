@@ -1,10 +1,11 @@
 #pragma once
-
+// STL
 #include <array>
 #include <vector>
-#include "Vector.hpp"
+// INTERNAL
+#include "vector.hpp"
 
-// Facse and trianglke are the same word and could be used interchangeably
+// Facse and triangle are the same and could be used interchangeably
 
 // face stores triangle vertices indices
 struct Face {
@@ -16,11 +17,15 @@ struct Face {
 
 //stores the actual vertex values x and y
 struct Triangle {
-    std::array<math::Vector<float, 2>, 3> points;
+    using point = ::vector<float, 2>;
+
+    std::array<point, 3> points;
 };
 
 struct Mesh {
+    using vertex = ::vector<float, 3>;
+
     std::vector<Face> faces;
-    std::vector<math::Vector<float, 3>> vertices;
-    math::Vector<float,3> rotation;
+    std::vector<vertex> vertices;
+    ::vector<float, 3> rotation;
 };

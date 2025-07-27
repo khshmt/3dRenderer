@@ -2,8 +2,10 @@
 #include <iostream>
 //INTERNAL
 #include <renderer.hpp>
-#include "timer.hpp"
-
+// PROFILER
+#ifdef TRACY_ENABLE
+#include <tracy/Tracy.hpp>
+#endif
 
 bool Renderer::initializeWindow(bool fullscreen) {
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
@@ -19,34 +21,37 @@ bool Renderer::initializeWindow(bool fullscreen) {
         std::cout << "-Screen dims: " << _width << "x" << _height << '\n';
     }
 
-    window_ptr = std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>(
+    _windowPtr = std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>(
         SDL_CreateWindow(nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, _width, _height,
                          SDL_WINDOW_RESIZABLE),
         SDL_DestroyWindow);
 
-    if (!window_ptr) {
+    if (!_windowPtr) {
         std::cerr << "Error creating a window\n";
         return false;
     }
 
-    renderer_ptr = std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)>(
-        SDL_CreateRenderer(window_ptr.get(), -1, 0), SDL_DestroyRenderer);
-    if (!renderer_ptr) {
+    _rendererPtr = std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)>(
+        SDL_CreateRenderer(_windowPtr.get(), -1, 0), SDL_DestroyRenderer);
+    if (!_rendererPtr) {
         std::cerr << "Error creating a renderer\n";
         return false;
     }
     if (fullscreen) {
-        SDL_SetWindowFullscreen(window_ptr.get(), SDL_WINDOW_MAXIMIZED);
+        SDL_SetWindowFullscreen(_windowPtr.get(), SDL_WINDOW_MAXIMIZED);
     }
 
-    return is_running = true;
+    if (TTF_Init() == 0)
+        _ttfTextRenerer = TTF_OpenFont("Roboto-Regular.ttf", 24);
+
+    return _isRunning = true;
 }
 
 void Renderer::setupWindow(const std::string& obj_file_path) {
-    color_buffer.resize(_width * _height);
+    _colorBuffer.resize(_width * _height);
 
-    color_buffer_texture_ptr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
-        SDL_CreateTexture(renderer_ptr.get(), SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+    _colorBufferTexturePtr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
+        SDL_CreateTexture(_rendererPtr.get(), SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                           _width, _height),
         SDL_DestroyTexture);
 
@@ -55,14 +60,14 @@ void Renderer::setupWindow(const std::string& obj_file_path) {
 
 void Renderer::drawPixel(int x, int y, uint32_t color) {
     if (x >= 0 && x < _width && y >= 0 && y < _height) {
-        color_buffer[(_width * y) + x] = color;
+        _colorBuffer[(_width * y) + x] = color;
     }
 }
 
 void Renderer::drawGrid() {
     for (uint32_t y{0}; y < _height; y += 20) {
         for (uint32_t x{0}; x < _width; x += 20) {
-            color_buffer[(_width * y) + x] = 0xFFFFFFFF;
+            _colorBuffer[(_width * y) + x] = 0xFFFFFFFF;
         }
     }
 }
@@ -97,6 +102,9 @@ void Renderer::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
 }
 
 void Renderer::drawTriangle(Triangle& tri, uint32_t color) {
+#ifdef TRACY_ENABLE
+    ZoneScoped;
+#endif
     drawLine(tri.points[0].x(), tri.points[0].y(), tri.points[1].x(), tri.points[1].y(), color);
     drawLine(tri.points[1].x(), tri.points[1].y(), tri.points[2].x(), tri.points[2].y(), color);
     drawLine(tri.points[2].x(), tri.points[2].y(), tri.points[0].x(), tri.points[0].y(), color);
@@ -213,17 +221,17 @@ void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color) {
 }
 
 void Renderer::renderColorBuffer() {
-    SDL_UpdateTexture(color_buffer_texture_ptr.get(), nullptr, color_buffer.data(),
+    SDL_UpdateTexture(_colorBufferTexturePtr.get(), nullptr, _colorBuffer.data(),
                       (int)(sizeof(uint32_t) * _width)  //Pitch ==> size of one row in bytes
     );
 
-    SDL_RenderCopy(renderer_ptr.get(), color_buffer_texture_ptr.get(), nullptr, nullptr);
+    SDL_RenderCopy(_rendererPtr.get(), _colorBufferTexturePtr.get(), nullptr, nullptr);
 }
 
 void Renderer::clearColorBuffer(uint32_t color) {
     for (uint32_t y{0}; y < _height; ++y) {
         for (uint32_t x{0}; x < _width; ++x) {
-            color_buffer[(_width * y) + x] = color;
+            _colorBuffer[(_width * y) + x] = color;
         }
     }
 }
@@ -233,16 +241,16 @@ void Renderer::process_input() {
     SDL_PollEvent(&event);
     switch (event.type) {
         case SDL_QUIT:
-            is_running = false;
+            _isRunning = false;
             break;
 
         case SDL_KEYDOWN:
             if (event.key.keysym.sym == SDLK_ESCAPE)
-                is_running = false;
-            if (event.key.keysym.sym == SDLK_SPACE && pause == false)
-                pause = true;
+                _isRunning = false;
+            if (event.key.keysym.sym == SDLK_SPACE && _pause == false)
+                _pause = true;
             else
-                pause = false;
+                _pause = false;
 
             if (event.key.keysym.sym == SDLK_c && _enableFaceCulling == false)
                 _enableFaceCulling = true;
@@ -282,41 +290,42 @@ void Renderer::process_input() {
 }
 
 bool Renderer::getWindowState() {
-    return is_running;
+    return _isRunning;
 }
 
-math::Vector<float, 2> Renderer::project(math::Vector<float, 3>& point) {
+::vector<float, 2> Renderer::project(::vector<float, 3>& point) {
     // this projection is perspective projection if you want isometric do not divide by the z-component
-    return {(fov_factor * point.x()) / point.z(), (fov_factor * point.y()) / point.z()};
+    return {(_fovFactor * point.x()) / point.z(), (_fovFactor * point.y()) / point.z()};
 }
 
 void Renderer::update() {
-    if (firstFrame) {
-        previousFrameTime = SDL_GetTicks();
-        firstFrame = false;
+    _timer.startWatch(__func__);
+    if (_firstFrame) {
+        _previousFrameTime = SDL_GetTicks();
+        _firstFrame = false;
     } else {
-        uint32_t delay_time = frameTargetTime - (SDL_GetTicks() - previousFrameTime);
-        if (delay_time > 0 && delay_time <= frameTargetTime)
+        uint32_t delay_time = _frameTargetTime - (SDL_GetTicks() - _previousFrameTime);
+        if (delay_time > 0 && delay_time <= _frameTargetTime)
             ;
         SDL_Delay(delay_time);
-        previousFrameTime = SDL_GetTicks();
+        _previousFrameTime = SDL_GetTicks();
     }
-    if (!pause) {
-        rotation.x() += 0.01;
-        rotation.y() += 0.01;
-        rotation.z() += 0.01;
+    if (!_pause) {
+        _rotation.x() += 0.01;
+        _rotation.y() += 0.01;
+        _rotation.z() += 0.01;
 
-        for (const auto& face : mesh.faces) {
+        for (const auto& face : _mesh.faces) {
             int i{0};
-            std::array<math::Vector<float, 3>, 3> face_vertices;
-            face_vertices[0] = mesh.vertices[face.a - 1];
-            face_vertices[1] = mesh.vertices[face.b - 1];
-            face_vertices[2] = mesh.vertices[face.c - 1];
+            std::array<::vector<float, 3>, 3> face_vertices;
+            face_vertices[0] = _mesh.vertices[face.a - 1];
+            face_vertices[1] = _mesh.vertices[face.b - 1];
+            face_vertices[2] = _mesh.vertices[face.c - 1];
             
             for (auto& vertex : face_vertices) {
-                vertex.rotateAroundX(rotation.x());
-                vertex.rotateAroundY(rotation.y());
-                vertex.rotateAroundZ(rotation.z());
+                vertex.rotateAroundX(_rotation.x());
+                vertex.rotateAroundY(_rotation.y());
+                vertex.rotateAroundZ(_rotation.z());
                 vertex.z() += 5;
             }
 
@@ -335,7 +344,7 @@ void Renderer::update() {
                 vec_face_normal.normalize();
 
                 //step3 find the camera ray (vector between camera origin and a point in the triangle)
-                auto vec_camera_ray = camera_position - vec_a;
+                auto vec_camera_ray = _cameraPosition - vec_a;
 
                 //ste4 check how aligned the camera ray with face normal
                 if (vec_face_normal * vec_camera_ray < 0.0f)
@@ -350,21 +359,23 @@ void Renderer::update() {
                 projected_point.y() += _height / 2; // translate
                 projected_triangle.points[i++] = projected_point;
             }
-            triangles_to_render.push_back(projected_triangle);
-            last_triangles_to_render = triangles_to_render;
+            _trianglesToRender.push_back(projected_triangle);
+            _lastTrianglesToRender = _trianglesToRender;
         }
     }
+    _timer.endWatch();
 }
 
-void Renderer::render() {
-    SDL_SetRenderDrawColor(renderer_ptr.get(), 0, 0, 0, 255);
-    SDL_RenderClear(renderer_ptr.get());
+void Renderer::render(double timer_value) {
+    _timer.startWatch(__func__);
+    SDL_SetRenderDrawColor(_rendererPtr.get(), 0, 0, 0, 255);
+    SDL_RenderClear(_rendererPtr.get());
 
     clearColorBuffer(0xFF000000);
 
     drawGrid();
 
-    for (auto& triangle : last_triangles_to_render) {
+    for (auto& triangle : _lastTrianglesToRender) {
         if (_VerticesModel) {
             drawRect(triangle.points[0].x(), triangle.points[0].y(), 3, 3, 0xFFFF0000);
             drawRect(triangle.points[1].x(), triangle.points[1].y(), 3, 3, 0xFFFF0000);
@@ -383,11 +394,35 @@ void Renderer::render() {
         }
     }
     renderColorBuffer();
-    SDL_RenderPresent(renderer_ptr.get());
-    triangles_to_render.clear();
+
+    static std::string timer_value_ = std::move(std::to_string(timer_value));
+    static auto t1 = std::chrono::steady_clock::now().time_since_epoch();
+    auto t2 = std::chrono::steady_clock::now().time_since_epoch();
+    if (t2 - t1 > 0.5s) {
+        timer_value_ = std::move(std::to_string(timer_value));
+        t1 = t2;
+    }
+    const ::vector<int, 2> dims1{100, 30};
+    drawText(std::string(std::format("fps: {}", timer_value_)), dims1,
+             {(_width - dims1.x()) / 2, 40});
+
+    const ::vector<int, 2> dims2{40, 30};
+    drawText("Profiles: ", {100, 30}, { 40, 40 });
+    drawText(" #1 ", dims2, {40, 70});
+    drawText(" #2 ", dims2, {40, 100});
+    drawText(" #3 ", dims2, {40, 130});
+    drawText(" #4 ", dims2, {40, 160});
+    drawText("C_Key: Culling.", {150, 30}, {40, 220});
+    drawText("D_Key: Disable Culling.", {200, 30}, {40, 250});
+    drawText("Space_Key: Pause.", {200, 30}, {40, 280});
+
+    SDL_RenderPresent(_rendererPtr.get());
+    _trianglesToRender.clear();
+    _timer.endWatch();
 }
 
 void Renderer::loadObjFileData(const std::string& obj_file_path) {
+    _timer.startWatch(__func__);
     FILE* file = fopen(obj_file_path.c_str(), "r");
     if (!file) {
         std::cerr << "Error opening file: " << obj_file_path << '\n';
@@ -396,34 +431,60 @@ void Renderer::loadObjFileData(const std::string& obj_file_path) {
     char line[1024];
 
     while (fgets(line, 1024, file)) {
+        ::vector<float, 3> vertex;
         // Vertex information
         if (strncmp(line, "v ", 2) == 0) {
-            math::Vector<float, 3> vertex;
             if (sscanf(line, "v %f %f %f", &vertex.x(), &vertex.y(), &vertex.z()) != 3) {
                 std::cerr << "Error parsing vertex line: " << line << '\n';
                 continue;
             }
-            mesh.vertices.push_back(vertex);
+            _mesh.vertices.push_back(vertex);
         }
+
+        //int indices[9];  // 0-vertex_index, 1-texture_index, 2-normal_index,........,6-vertex_index, 7-texture_index, 8-normal_index
+        int vertex_indicies[3];
+        int texture_indicies[3];
+        int normal_indicies[3];
         // Face information
         if (strncmp(line, "f ", 2) == 0) {
-            int vertex_indices[3];
-            int texture_indices[3];
-            int normal_indices[3];
-            if (sscanf(line, "f %d/%d/%d %d/%d/%d %d/%d/%d", &vertex_indices[0],
-                       &texture_indices[0], &normal_indices[0], &vertex_indices[1],
-                       &texture_indices[1], &normal_indices[1], &vertex_indices[2],
-                       &texture_indices[2], &normal_indices[2]) != 9) {
+            if (sscanf(line, "f %d/%d/%d %d/%d/%d %d/%d/%d", &vertex_indicies[0],
+                       &texture_indicies[0], &normal_indicies[0], &vertex_indicies[1],
+                       &texture_indicies[1], &normal_indicies[1], &vertex_indicies[2],
+                       &texture_indicies[2], &normal_indicies[2]) != 9) {
                 std::cerr << "Error parsing face line: " << line << '\n';
                 continue;
             }
-            Face face = {.a = vertex_indices[0], .b = vertex_indices[1], .c = vertex_indices[2]};
-            mesh.faces.push_back(face);
+            Face face = {.a = vertex_indicies[0], .b = vertex_indicies[1], .c = vertex_indicies[2]};
+            _mesh.faces.push_back(face);
         }
     }
     fclose(file);
+    _timer.endWatch();
 }
 
 void Renderer::destroyWindow() {
     // SDL_Quit();
+}
+
+void Renderer::drawText(std::string_view text,
+                        const ::vector<int, 2>& dims, const ::vector<int, 2>& pos) {
+    SDL_Surface* surface = TTF_RenderText_Blended(_ttfTextRenerer, text.data(), {255,255,255});
+    if (surface == nullptr) {
+        std::cout << "Unable to render text surface! SDL_ttf Error: " << TTF_GetError() << '\n';
+        return;
+    }
+
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(_rendererPtr.get(), surface);
+    if (texture == nullptr) {
+        SDL_FreeSurface(surface);
+        std::cout << "Unable to create texture from rendered text! SDL Error: " << SDL_GetError()
+                  << '\n';
+        return;
+    }
+
+    SDL_Rect renderQuad = {pos.x(), pos.y(), dims.x(), dims.y()};
+    SDL_RenderCopy(_rendererPtr.get(), texture, nullptr, &renderQuad);
+
+    SDL_DestroyTexture(texture);
+    SDL_FreeSurface(surface);
 }

@@ -1,25 +1,58 @@
 #pragma once
 #include <chrono>
-#include <iostream>
+#include <format>
+#include <fstream>
+#include <filesystem>
 
 class Timer {
-   public:
-    Timer() { start_time = std::chrono::steady_clock::now(); }
-
-    ~Timer() {
-        end_time = std::chrono::steady_clock::now();
-
-        auto start = std::chrono::time_point_cast<std::chrono::microseconds>(start_time)
-                         .time_since_epoch()
-                         .count();
-        auto end = std::chrono::time_point_cast<std::chrono::microseconds>(end_time)
-                       .time_since_epoch()
-                       .count();
-
-        std::cout << (end - start) << "us\n";
+public:
+    Timer() {
+        auto file_name = std::format("log{}.txt", count);
+        _file = std::fstream(file_name, std::ios::out);
+        count++;
     }
 
-   private:
-    std::chrono::time_point<std::chrono::steady_clock> start_time;
-    std::chrono::time_point<std::chrono::steady_clock> end_time;
+    ~Timer() { 
+        _file.close();
+    }
+
+    void startWatch(std::string_view functionName) { 
+        _startWatchTime = std::chrono::steady_clock::now(); 
+        _functionName = functionName;
+    }
+
+    void endWatch() { 
+        _endWatchTime = std::chrono::steady_clock::now(); 
+        auto _time =
+            std::chrono::duration_cast<std::chrono::microseconds>(_endWatchTime - _startWatchTime)
+                .count();
+        _file << _functionName << " takes: " << _time << "us\n";
+        _fps = FPS();
+    }
+
+    double getFPS() {
+        return _fps;
+    }
+
+private:
+    double FPS() {
+        const auto& _start =
+            std::chrono::time_point_cast<std::chrono::microseconds>(_startWatchTime)
+                .time_since_epoch()
+                .count();
+        const auto& _end = std::chrono::time_point_cast<std::chrono::microseconds>(_endWatchTime)
+                               .time_since_epoch()
+                               .count();
+        auto fps = 1.0 / ((_end - _start) * 1.0e-6);
+        return fps;
+    }
+
+private:
+    std::chrono::time_point<std::chrono::steady_clock> _startWatchTime;
+    std::chrono::time_point<std::chrono::steady_clock> _endWatchTime;
+    std::fstream _file;
+    std::string_view _functionName;
+    double _fps{};
+    inline static int count{0};
+
 };
