@@ -34,6 +34,7 @@
           "type": "FILEPATH",
           "value": "C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
         },
+        "ENABLE_PROFILING": true,
         "CMAKE_C_COMPILER": "cl",
         "CMAKE_CXX_COMPILER": "cl"
       },
@@ -73,6 +74,18 @@
       "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "msvc-x64-RelWithDebInfo",
+      "displayName": "x64-RelWithDebInfo",
+      "description": "Default build using Ninja generator",
+      "inherits": [
+        "windows-default"
+      ],
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
     },
     {

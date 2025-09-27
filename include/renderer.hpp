@@ -27,7 +27,7 @@ using namespace std::literals;
 class RENDERER_API Renderer {
 public:
     bool initializeWindow(bool fullscreen = false);
-    void setupWindow(const std::string& obj_file_path);
+    bool setupWindow(const std::string& obj_file_path);
     void destroyWindow();
     void process_input();
     bool getWindowState();

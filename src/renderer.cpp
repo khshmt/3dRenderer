@@ -2,16 +2,15 @@
 #include <iostream>
 //INTERNAL
 #include <renderer.hpp>
-// PROFILER
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
 #endif
-
 bool Renderer::initializeWindow(bool fullscreen) {
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
         std::cerr << "Error initializing SDL\n";
         return false;
     }
+
     SDL_DisplayMode display_mode;
     auto success = SDL_GetCurrentDisplayMode(0, &display_mode);
     if (success == 0) {  //if zero returned that means success
@@ -21,22 +20,22 @@ bool Renderer::initializeWindow(bool fullscreen) {
         std::cout << "-Screen dims: " << _width << "x" << _height << '\n';
     }
 
-    _windowPtr = std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>(
-        SDL_CreateWindow(nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, _width, _height,
-                         SDL_WINDOW_RESIZABLE),
-        SDL_DestroyWindow);
-
-    if (!_windowPtr) {
+    if (_windowPtr = std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>(
+            SDL_CreateWindow(nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, _width,
+                             _height, SDL_WINDOW_RESIZABLE),
+            SDL_DestroyWindow);
+        !_windowPtr) {
         std::cerr << "Error creating a window\n";
         return false;
     }
 
-    _rendererPtr = std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)>(
-        SDL_CreateRenderer(_windowPtr.get(), -1, 0), SDL_DestroyRenderer);
-    if (!_rendererPtr) {
+    if (_rendererPtr = std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)>(
+            SDL_CreateRenderer(_windowPtr.get(), -1, 0), SDL_DestroyRenderer);
+        !_rendererPtr) {
         std::cerr << "Error creating a renderer\n";
         return false;
     }
+
     if (fullscreen) {
         SDL_SetWindowFullscreen(_windowPtr.get(), SDL_WINDOW_MAXIMIZED);
     }
@@ -47,15 +46,19 @@ bool Renderer::initializeWindow(bool fullscreen) {
     return _isRunning = true;
 }
 
-void Renderer::setupWindow(const std::string& obj_file_path) {
+bool Renderer::setupWindow(const std::string& obj_file_path) {
     _colorBuffer.resize(_width * _height);
 
-    _colorBufferTexturePtr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
-        SDL_CreateTexture(_rendererPtr.get(), SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+    if(_colorBufferTexturePtr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
+        SDL_CreateTexture(_rendererPtr.get(), SDL_PIXELFORMAT_ARGB8888, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING,
                           _width, _height),
-        SDL_DestroyTexture);
+        SDL_DestroyTexture); !_colorBufferTexturePtr) {
+        std::cout << "falied to create Texture\n";
+        return false;
+    }
 
     loadObjFileData(obj_file_path);
+    return true;
 }
 
 void Renderer::drawPixel(int x, int y, uint32_t color) {
@@ -102,9 +105,6 @@ void Renderer::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
 }
 
 void Renderer::drawTriangle(Triangle& tri, uint32_t color) {
-#ifdef TRACY_ENABLE
-    ZoneScoped;
-#endif
     drawLine(tri.points[0].x(), tri.points[0].y(), tri.points[1].x(), tri.points[1].y(), color);
     drawLine(tri.points[1].x(), tri.points[1].y(), tri.points[2].x(), tri.points[2].y(), color);
     drawLine(tri.points[2].x(), tri.points[2].y(), tri.points[0].x(), tri.points[0].y(), color);
@@ -247,10 +247,8 @@ void Renderer::process_input() {
         case SDL_KEYDOWN:
             if (event.key.keysym.sym == SDLK_ESCAPE)
                 _isRunning = false;
-            if (event.key.keysym.sym == SDLK_SPACE && _pause == false)
-                _pause = true;
-            else
-                _pause = false;
+            if (event.key.keysym.sym == SDLK_SPACE)
+                _pause = !_pause;
 
             if (event.key.keysym.sym == SDLK_c && _enableFaceCulling == false)
                 _enableFaceCulling = true;
@@ -310,6 +308,7 @@ void Renderer::update() {
         SDL_Delay(delay_time);
         _previousFrameTime = SDL_GetTicks();
     }
+    ZoneNamedN(update, "update2", true);
     if (!_pause) {
         _rotation.x() += 0.01;
         _rotation.y() += 0.01;

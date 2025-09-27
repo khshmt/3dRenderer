@@ -3,7 +3,6 @@
 #include <memory>
 // Internal
 #include "renderer.hpp"
-// PROFILER
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
 #endif
@@ -17,19 +16,25 @@ int main(int argc, char* argv[]) {
         Timer timer;
         Renderer renderer;
         if (renderer.initializeWindow(true)) {
-            renderer.setupWindow(argv[1]);
-            // Game Loop
-            while (renderer.getWindowState()) {
-#ifdef TRACY_ENABLE
-                ZoneScoped;
-#endif
-                timer.startWatch(__func__);
-                renderer.process_input();
-                renderer.update();
-                renderer.render(timer.getFPS());
-                timer.endWatch();
+            if (renderer.setupWindow(argv[1])) {
+                // Game Loop
+                while (renderer.getWindowState()) {
+                    FrameMarkStart("game loop");
+                    timer.startWatch(__func__);
+                    renderer.process_input();
+                    renderer.update();
+                    renderer.render(timer.getFPS());
+                    timer.endWatch();
+                    FrameMarkEnd("game loop");
+                }
+            } else {
+                std::cerr << "Failed to setup SDL window.\n";
+                return 1;
             }
             renderer.destroyWindow();
+        } else {
+            std::cerr << "Failed to initialize SDL window.\n";
+            return 1;
         }
     }
 
