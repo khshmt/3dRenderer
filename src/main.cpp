@@ -23,8 +23,8 @@ int main(int argc, char* argv[]) {
                     FrameMarkStart("game loop");
                     #endif
                     timer.startWatch(__func__);
-
-                    renderer.process_input(); // #1-Game Loop
+                    
+                    renderer.processInput(); // #1-Game Loop
                     renderer.update(); // #2-Game Loop
                     renderer.render(timer.getFPS()); // #3-Game Loop
                     

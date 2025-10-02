@@ -29,7 +29,7 @@ public:
     bool initializeWindow(bool fullscreen = false);
     bool setupWindow(const std::string& obj_file_path);
     void destroyWindow();
-    void process_input();
+    void processInput();
     bool getWindowState();
     void update();
     void render(double timer_value);
@@ -50,6 +50,7 @@ private:
     void clearColorBuffer(uint32_t color);
     void loadObjFileData(const std::string& obj_file_path);
     ::vector<float, 2> project(::vector<float, 3>& point);
+    void processInputThreadFunc();
 
 private:
     std::atomic_bool _isRunning = false;
@@ -59,6 +60,7 @@ private:
     std::atomic_bool _wireframeModel{true};
     std::atomic_bool _VerticesModel{false};
     std::atomic_bool _raterizeModel{false};
+    std::atomic_bool _processInput{false};
 
     bool _firstFrame{true};
 
@@ -68,7 +70,7 @@ private:
     // float fov_factor = 128; // for isometric projection
 
     uint32_t _previousFrameTime{0};
-    const uint32_t _fps{40};
+    const uint32_t _fps{30};
     const uint32_t _frameTargetTime{1000 / _fps};  //the time of one frame
 
     std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> _windowPtr =
@@ -90,5 +92,7 @@ private:
     ::vector<float, 3> _cameraPosition = {0, 0, 0};
     ::vector<float, 3> _rotation = {0.0, 0.0, 0.0};
 
+    std::unique_ptr<std::thread> _processInputThread = nullptr;
+    
     Timer _timer;
 };

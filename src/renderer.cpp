@@ -241,53 +241,64 @@ void Renderer::clearColorBuffer(uint32_t color) {
     }
 }
 
-void Renderer::process_input() {
-    SDL_Event event;
-    SDL_PollEvent(&event);
-    switch (event.type) {
-        case SDL_QUIT:
-            _isRunning = false;
-            break;
+void Renderer::processInput() {
+    if (!_processInput && _processInputThread == nullptr) {
+        _processInput = true;
+        _processInputThread =
+            std::make_unique<std::thread>([this]() { this->processInputThreadFunc(); });
+    }
+}
 
-        case SDL_KEYDOWN:
-            if (event.key.keysym.sym == SDLK_ESCAPE)
+void Renderer::processInputThreadFunc() {
+    while (_processInput) {
+        SDL_Event event;
+        SDL_PollEvent(&event);
+        switch (event.type) {
+            case SDL_QUIT:
                 _isRunning = false;
-            if (event.key.keysym.sym == SDLK_SPACE)
-                _pause = !_pause;
+                break;
 
-            if (event.key.keysym.sym == SDLK_c && _enableFaceCulling == false)
-                _enableFaceCulling = true;
+            case SDL_KEYDOWN:
+                if (event.key.keysym.sym == SDLK_ESCAPE)
+                    _isRunning = false;
+                if (event.key.keysym.sym == SDLK_SPACE)
+                    _pause = !_pause;
 
-            if (event.key.keysym.sym == SDLK_d && _enableFaceCulling == true)
-                _enableFaceCulling = false;
+                if (event.key.keysym.sym == SDLK_c && _enableFaceCulling == false)
+                    _enableFaceCulling = true;
 
-            if (event.key.keysym.sym == SDLK_1) {
-                _wireframeModel = true;
-                _VerticesModel = true;
-                _raterizeModel = false;
-            }
+                if (event.key.keysym.sym == SDLK_d && _enableFaceCulling == true)
+                    _enableFaceCulling = false;
 
-            if (event.key.keysym.sym == SDLK_2) {
-                _wireframeModel = true;
-                _VerticesModel = false;
-                _raterizeModel = false;
-            }
+                if (event.key.keysym.sym == SDLK_1) {
+                    _wireframeModel = true;
+                    _VerticesModel = true;
+                    _raterizeModel = false;
+                }
 
-            if (event.key.keysym.sym == SDLK_3) {
-                _wireframeModel = false;
-                _VerticesModel = false;
-                _raterizeModel = true;
-            }
+                if (event.key.keysym.sym == SDLK_2) {
+                    _wireframeModel = true;
+                    _VerticesModel = false;
+                    _raterizeModel = false;
+                }
 
-            if (event.key.keysym.sym == SDLK_4) {
-                _wireframeModel = true;
-                _VerticesModel = false;
-                _raterizeModel = true;
-            }
-            break;
+                if (event.key.keysym.sym == SDLK_3) {
+                    _wireframeModel = false;
+                    _VerticesModel = false;
+                    _raterizeModel = true;
+                }
 
-        default:
-            break;
+                if (event.key.keysym.sym == SDLK_4) {
+                    _wireframeModel = true;
+                    _VerticesModel = false;
+                    _raterizeModel = true;
+                }
+                break;
+
+            default:
+                break;
+        }
+        std::this_thread::sleep_for(5ms);
     }
 }
 
@@ -465,6 +476,9 @@ void Renderer::loadObjFileData(const std::string& obj_file_path) {
 
 void Renderer::destroyWindow() {
     // SDL_Quit();
+    _processInput = false;
+    if (_processInputThread && _processInputThread->joinable())
+        _processInputThread->join();
 }
 
 void Renderer::drawText(std::string_view text,
