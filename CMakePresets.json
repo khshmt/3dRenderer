@@ -51,12 +51,13 @@
       ],
       "hidden": true,
       "cacheVariables": {
-        "_comment": "if you installed dependcies system wide using apt or other wise remove the nex two lines",
         "CMAKE_TOOLCHAIN_FILE": {
           "type": "FILEPATH",
-          "value": "~/vcpkg/vcpkg_slam/scripts/buildsystems/vcpkg.cmake"
+          "value": "~/vcpkg/scripts/buildsystems/vcpkg.cmake"
         },
-        "OpenCV_DIR": "/usr/lib/x86_64-linux-gnu/cmake/opencv4"
+        "ENABLE_PROFILING": true,
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
       },
       "condition": {
         "type": "equals",
@@ -101,25 +102,33 @@
       }
     },
     {
-      "name": "gcc-debug",
+      "name": "gcc-x64-debug",
+      "displayName": "x64-debug",
       "inherits": [
         "linux-default"
       ],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_COMPILER": "gcc",
-        "CMAKE_CXX_COMPILER": "g++"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
-      "name": "gcc-release",
+      "name": "gcc-x64-RelWithDebInfo",
+      "displayName": "x64-RelWithDebInfo",
+      "inherits": [
+        "linux-default" 
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "gcc-x64-release",
+      "displayName": "x64-release",
       "inherits": [
         "linux-default"
       ],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_C_COMPILER": "gcc",
-        "CMAKE_CXX_COMPILER": "g++"
+        "CMAKE_BUILD_TYPE": "Release"
       }
     }
   ]

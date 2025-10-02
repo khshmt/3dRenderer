@@ -19,22 +19,28 @@ int main(int argc, char* argv[]) {
             if (renderer.setupWindow(argv[1])) {
                 // Game Loop
                 while (renderer.getWindowState()) {
+                    #ifdef TRACY_ENABLE
                     FrameMarkStart("game loop");
+                    #endif
                     timer.startWatch(__func__);
-                    renderer.process_input();
-                    renderer.update();
-                    renderer.render(timer.getFPS());
+
+                    renderer.process_input(); // #1-Game Loop
+                    renderer.update(); // #2-Game Loop
+                    renderer.render(timer.getFPS()); // #3-Game Loop
+                    
                     timer.endWatch();
+                    #ifdef TRACY_ENABLE
                     FrameMarkEnd("game loop");
+                    #endif
                 }
             } else {
                 std::cerr << "Failed to setup SDL window.\n";
-                return 1;
+                return 2;
             }
             renderer.destroyWindow();
         } else {
             std::cerr << "Failed to initialize SDL window.\n";
-            return 1;
+            return 3;
         }
     }
 

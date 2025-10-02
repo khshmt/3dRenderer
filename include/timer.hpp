@@ -1,13 +1,13 @@
 #pragma once
 #include <chrono>
-#include <format>
+#include <fmt/format.h>
 #include <fstream>
 #include <filesystem>
 
 class Timer {
 public:
     Timer() {
-        auto file_name = std::format("log{}.txt", count);
+        auto file_name = fmt::format("log{}.txt", count);
         _file = std::fstream(file_name, std::ios::out);
         count++;
     }

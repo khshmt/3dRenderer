@@ -68,7 +68,7 @@ private:
     // float fov_factor = 128; // for isometric projection
 
     uint32_t _previousFrameTime{0};
-    const uint32_t _fps{30};
+    const uint32_t _fps{40};
     const uint32_t _frameTargetTime{1000 / _fps};  //the time of one frame
 
     std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> _windowPtr =

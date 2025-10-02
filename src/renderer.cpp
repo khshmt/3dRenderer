@@ -40,13 +40,18 @@ bool Renderer::initializeWindow(bool fullscreen) {
         SDL_SetWindowFullscreen(_windowPtr.get(), SDL_WINDOW_MAXIMIZED);
     }
 
-    if (TTF_Init() == 0)
+    if (TTF_Init() == 0) {
+        if(std::filesystem::exists("Roboto-Regular.ttf") == false) {
+            std::cerr << "Font file does not exist\n";
+            return false;
+        }
         _ttfTextRenerer = TTF_OpenFont("Roboto-Regular.ttf", 24);
+    }
 
     return _isRunning = true;
 }
 
-bool Renderer::setupWindow(const std::string& obj_file_path) {
+bool Renderer:: setupWindow(const std::string& obj_file_path) {
     _colorBuffer.resize(_width * _height);
 
     if(_colorBufferTexturePtr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
@@ -279,7 +284,6 @@ void Renderer::process_input() {
                 _VerticesModel = false;
                 _raterizeModel = true;
             }
-
             break;
 
         default:
@@ -304,11 +308,9 @@ void Renderer::update() {
     } else {
         uint32_t delay_time = _frameTargetTime - (SDL_GetTicks() - _previousFrameTime);
         if (delay_time > 0 && delay_time <= _frameTargetTime)
-            ;
-        SDL_Delay(delay_time);
+            SDL_Delay(delay_time);
         _previousFrameTime = SDL_GetTicks();
     }
-    ZoneNamedN(update, "update2", true);
     if (!_pause) {
         _rotation.x() += 0.01;
         _rotation.y() += 0.01;
@@ -402,7 +404,7 @@ void Renderer::render(double timer_value) {
         t1 = t2;
     }
     const ::vector<int, 2> dims1{100, 30};
-    drawText(std::string(std::format("fps: {}", timer_value_)), dims1,
+    drawText(std::string(fmt::format("fps: {}", timer_value_)), dims1,
              {(_width - dims1.x()) / 2, 40});
 
     const ::vector<int, 2> dims2{40, 30};
