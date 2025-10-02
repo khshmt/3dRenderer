@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
     {
         Timer timer;
         Renderer renderer;
-        if (renderer.initializeWindow(true)) {
+        if (renderer.initializeWindow(false)) {
             if (renderer.setupWindow(argv[1])) {
                 // Game Loop
                 while (renderer.getWindowState()) {

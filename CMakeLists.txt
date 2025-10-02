@@ -31,7 +31,7 @@ if(ENABLE_PROFILING)
 endif()
 
 add_executable(${PROJECT_NAME} 
-    WIN32
+    #WIN32
     ${CMAKE_SOURCE_DIR}/src/main.cpp
 )
 

@@ -50,7 +50,6 @@ private:
     void clearColorBuffer(uint32_t color);
     void loadObjFileData(const std::string& obj_file_path);
     ::vector<float, 2> project(::vector<float, 3>& point);
-    void processInputThreadFunc();
 
 private:
     std::atomic_bool _isRunning = false;

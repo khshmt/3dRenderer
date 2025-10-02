@@ -242,63 +242,53 @@ void Renderer::clearColorBuffer(uint32_t color) {
 }
 
 void Renderer::processInput() {
-    if (!_processInput && _processInputThread == nullptr) {
-        _processInput = true;
-        _processInputThread =
-            std::make_unique<std::thread>([this]() { this->processInputThreadFunc(); });
-    }
-}
-
-void Renderer::processInputThreadFunc() {
-    while (_processInput) {
-        SDL_Event event;
-        SDL_PollEvent(&event);
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {  // keep processing until queue is empty
         switch (event.type) {
             case SDL_QUIT:
                 _isRunning = false;
                 break;
 
             case SDL_KEYDOWN:
-                if (event.key.keysym.sym == SDLK_ESCAPE)
-                    _isRunning = false;
-                if (event.key.keysym.sym == SDLK_SPACE)
-                    _pause = !_pause;
-
-                if (event.key.keysym.sym == SDLK_c && _enableFaceCulling == false)
-                    _enableFaceCulling = true;
-
-                if (event.key.keysym.sym == SDLK_d && _enableFaceCulling == true)
-                    _enableFaceCulling = false;
-
-                if (event.key.keysym.sym == SDLK_1) {
-                    _wireframeModel = true;
-                    _VerticesModel = true;
-                    _raterizeModel = false;
-                }
-
-                if (event.key.keysym.sym == SDLK_2) {
-                    _wireframeModel = true;
-                    _VerticesModel = false;
-                    _raterizeModel = false;
-                }
-
-                if (event.key.keysym.sym == SDLK_3) {
-                    _wireframeModel = false;
-                    _VerticesModel = false;
-                    _raterizeModel = true;
-                }
-
-                if (event.key.keysym.sym == SDLK_4) {
-                    _wireframeModel = true;
-                    _VerticesModel = false;
-                    _raterizeModel = true;
+                switch (event.key.keysym.sym) {
+                    case SDLK_ESCAPE:
+                        _isRunning = false;
+                        break;
+                    case SDLK_SPACE:
+                        _pause = !_pause;
+                        break;
+                    case SDLK_c:
+                        _enableFaceCulling = true;
+                        break;
+                    case SDLK_d:
+                        _enableFaceCulling = false;
+                        break;
+                    case SDLK_1:
+                        _wireframeModel = true;
+                        _VerticesModel = true;
+                        _raterizeModel = false;
+                        break;
+                    case SDLK_2:
+                        _wireframeModel = true;
+                        _VerticesModel = false;
+                        _raterizeModel = false;
+                        break;
+                    case SDLK_3:
+                        _wireframeModel = false;
+                        _VerticesModel = false;
+                        _raterizeModel = true;
+                        break;
+                    case SDLK_4:
+                        _wireframeModel = true;
+                        _VerticesModel = false;
+                        _raterizeModel = true;
+                        break;
                 }
                 break;
 
             default:
                 break;
         }
-        std::this_thread::sleep_for(5ms);
     }
 }
 
