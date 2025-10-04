@@ -138,4 +138,14 @@ private:
     T _y{0};
     T _z{0};
 };
+
+using vec2f_t = vector<float, 2>;
+using vec3f_t = vector<float, 3>;
+
+using vec2i_t = vector<int, 2>;
+using vec3i_t = vector<int, 3>;
+
+using vec2d_t = vector<double, 2>;
+using vec3d_t = vector<double, 3>;
+
 }  // namespace
