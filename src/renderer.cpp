@@ -286,6 +286,16 @@ void Renderer::processInput() {
                 }
                 break;
 
+            case SDL_MOUSEWHEEL:
+                if (event.wheel.y > 0) {
+                    // Scroll up
+                    _cameraPosition.z()++;  // increase your int member variable
+                } else if (event.wheel.y < 0) {
+                    // Scroll down
+                    _cameraPosition.z()--;  // decrease your int member variable
+                }
+                break;
+
             default:
                 break;
         }
@@ -417,6 +427,7 @@ void Renderer::render(double timer_value) {
     drawText("C_Key: Culling.", {150, 30}, {40, 220});
     drawText("D_Key: Disable Culling.", {200, 30}, {40, 250});
     drawText("Space_Key: Pause.", {200, 30}, {40, 280});
+    drawText("Mouse Wheel Zoom in/out.", {200, 30}, {40, 310});
 
     SDL_RenderPresent(_rendererPtr.get());
     _trianglesToRender.clear();
