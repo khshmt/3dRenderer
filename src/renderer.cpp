@@ -303,15 +303,17 @@ vec2f_t Renderer::project(vec3f_t& point) {
 
 void Renderer::update() {
     _timer.startWatch(__func__);
-    if (_firstFrame) {
-        _previousFrameTime = SDL_GetTicks();
-        _firstFrame = false;
-    } else {
-        uint32_t delay_time = _frameTargetTime - (SDL_GetTicks() - _previousFrameTime);
-        if (delay_time > 0 && delay_time <= _frameTargetTime)
-            SDL_Delay(delay_time);
-        _previousFrameTime = SDL_GetTicks();
-    }
+
+    //this technique is prefered because SDL_TICKS_PASSED could lead to high CPU usage because of the while loop
+    //auto delayTime = _frameTargetTime - (SDL_GetTicks() - _previousFrameTime);
+    //if (delayTime > 0 && delayTime <= _frameTargetTime) {
+    //    SDL_Delay(delayTime);
+    //}
+
+    // this technique is better for consistent frame rate, and no high CPU usage observed on windows
+    while (!SDL_TICKS_PASSED(SDL_GetTicks(), _previousFrameTime + _frameTargetTime));
+    _previousFrameTime = SDL_GetTicks();
+
     if (!_pause) {
         _rotation.x() += 0.01;
         _rotation.y() += 0.01;
