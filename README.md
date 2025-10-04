@@ -2,8 +2,3 @@
 
 A lightweight **software renderer** written in **C++** that can load and render 3D models from `.obj` files without relying on GPU APIs like OpenGL or DirectX.  
 This project is designed as a learning exercise in computer graphics, rasterization, and 3D math.
-
-<p align="center">
-  <img src="assets/screenshot1.png" alt="Screenshot 1" width="45%"/>
-  <img src="assets/screenshot2.png" alt="Screenshot 2" width="45%"/>
-</p>
