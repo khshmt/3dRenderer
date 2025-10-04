@@ -24,6 +24,20 @@
 
 using namespace std::literals;
 
+/*
+   this Rendering System is Left-Handed system where Z axis grows inside the screen
+   Left-Handed Coordinate System (Z out of the screen)
+
+           +Y (UP)         
+              |   / +Z (in screen)  
+              |  /
+              | /
+              o-------> +X (right)
+
+   - X: left
+   - Y: down
+   - Z: into screen
+*/
 class RENDERER_API Renderer {
 public:
     bool initializeWindow(bool fullscreen = false);
@@ -33,7 +47,7 @@ public:
     bool getWindowState();
     void update();
     void render(double timer_value);
-    void drawText(std::string_view text, const ::vector<int, 2>& dims, const ::vector<int, 2>& pos);
+    void drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos);
 
 private:
     void drawGrid();
@@ -49,7 +63,7 @@ private:
     void renderColorBuffer();
     void clearColorBuffer(uint32_t color);
     void loadObjFileData(const std::string& obj_file_path);
-    ::vector<float, 2> project(::vector<float, 3>& point);
+    vec2f_t project(vec3f_t& point);
 
 private:
     std::atomic_bool _isRunning = false;
@@ -66,7 +80,7 @@ private:
     int _width{800};
     int _height{600};
     float _fovFactor = 640;  // for perspective projection
-    // float fov_factor = 128; // for isometric projection
+    //float _fovFactor = 128;  // for isometric projection
 
     uint32_t _previousFrameTime{0};
     const uint32_t _fps{30};
@@ -88,8 +102,8 @@ private:
     std::vector<Triangle> _lastTrianglesToRender;
     Mesh _mesh;
 
-    ::vector<float, 3> _cameraPosition = {0, 0, 0};
-    ::vector<float, 3> _rotation = {0.0, 0.0, 0.0};
+    vec3f_t _cameraPosition = {0, 0, 0};
+    vec3f_t _rotation = {0.0, 0.0, 0.0};
 
     std::unique_ptr<std::thread> _processInputThread = nullptr;
     

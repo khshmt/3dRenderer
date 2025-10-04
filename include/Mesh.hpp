@@ -17,15 +17,15 @@ struct Face {
 
 //stores the actual vertex values x and y
 struct Triangle {
-    using point = ::vector<float, 2>;
+    using point = vec2f_t;
 
     std::array<point, 3> points;
 };
 
 struct Mesh {
-    using vertex = ::vector<float, 3>;
+    using vertex = vec3f_t;
 
     std::vector<Face> faces;
     std::vector<vertex> vertices;
-    ::vector<float, 3> rotation;
+    vec3f_t rotation;
 };

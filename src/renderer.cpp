@@ -296,7 +296,7 @@ bool Renderer::getWindowState() {
     return _isRunning;
 }
 
-::vector<float, 2> Renderer::project(::vector<float, 3>& point) {
+vec2f_t Renderer::project(vec3f_t& point) {
     // this projection is perspective projection if you want isometric do not divide by the z-component
     return {(_fovFactor * point.x()) / point.z(), (_fovFactor * point.y()) / point.z()};
 }
@@ -319,7 +319,7 @@ void Renderer::update() {
 
         for (const auto& face : _mesh.faces) {
             int i{0};
-            std::array<::vector<float, 3>, 3> face_vertices;
+            std::array<vec3f_t, 3> face_vertices;
             face_vertices[0] = _mesh.vertices[face.a - 1];
             face_vertices[1] = _mesh.vertices[face.b - 1];
             face_vertices[2] = _mesh.vertices[face.c - 1];
@@ -404,11 +404,11 @@ void Renderer::render(double timer_value) {
         timer_value_ = std::move(std::to_string(timer_value));
         t1 = t2;
     }
-    const ::vector<int, 2> dims1{100, 30};
+    const vec2i_t dims1{100, 30};
     drawText(std::string(fmt::format("fps: {}", timer_value_)), dims1,
              {(_width - dims1.x()) / 2, 40});
 
-    const ::vector<int, 2> dims2{40, 30};
+    const vec2i_t dims2{40, 30};
     drawText("Profiles: ", {100, 30}, { 40, 40 });
     drawText(" #1 ", dims2, {40, 70});
     drawText(" #2 ", dims2, {40, 100});
@@ -433,7 +433,7 @@ void Renderer::loadObjFileData(const std::string& obj_file_path) {
     char line[1024];
 
     while (fgets(line, 1024, file)) {
-        ::vector<float, 3> vertex;
+        vec3f_t vertex;
         // Vertex information
         if (strncmp(line, "v ", 2) == 0) {
             if (sscanf(line, "v %f %f %f", &vertex.x(), &vertex.y(), &vertex.z()) != 3) {
@@ -471,8 +471,7 @@ void Renderer::destroyWindow() {
         _processInputThread->join();
 }
 
-void Renderer::drawText(std::string_view text,
-                        const ::vector<int, 2>& dims, const ::vector<int, 2>& pos) {
+void Renderer::drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos) {
     SDL_Surface* surface = TTF_RenderText_Blended(_ttfTextRenerer, text.data(), {255,255,255});
     if (surface == nullptr) {
         std::cout << "Unable to render text surface! SDL_ttf Error: " << TTF_GetError() << '\n';
