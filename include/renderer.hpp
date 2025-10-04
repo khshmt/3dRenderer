@@ -63,6 +63,7 @@ private:
     void renderColorBuffer();
     void clearColorBuffer(uint32_t color);
     void loadObjFileData(const std::string& obj_file_path);
+    void normalizeModel(std::vector<vec3f_t>& vertices);
     vec2f_t project(vec3f_t& point);
 
 private:

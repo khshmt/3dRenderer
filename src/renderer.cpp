@@ -472,7 +472,46 @@ void Renderer::loadObjFileData(const std::string& obj_file_path) {
         }
     }
     fclose(file);
+    normalizeModel(_mesh.vertices);
     _timer.endWatch();
+}
+
+void Renderer::normalizeModel(std::vector<vec3f_t>& vertices) {
+    if (vertices.empty())
+        return;
+
+    // Step 1: compute bounding box
+    vec3f_t min = {FLT_MAX, FLT_MAX, FLT_MAX};
+    vec3f_t max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+
+    for (const auto& v : vertices) {
+        min.x() = std::min(min.x(), v.x());
+        min.y() = std::min(min.y(), v.y());
+        min.z() = std::min(min.z(), v.z());
+
+        max.x() = std::max(max.x(), v.x());
+        max.y() = std::max(max.y(), v.y());
+        max.z() = std::max(max.z(), v.z());
+    }
+
+    // Step 2: compute center and extent
+    vec3f_t center = {(min.x() + max.x()) / 2.0f, (min.y() + max.y()) / 2.0f, (min.z() + max.z()) / 2.0f};
+
+    vec3f_t size = {max.x() - min.x(), max.y() - min.y(), max.z() - min.z()};
+    float maxExtent = std::max({size.x(), size.y(), size.z()});
+
+    // Step 3: normalize vertices
+    for (auto& v : vertices) {
+        // translate to origin
+        v.x() -= center.x();
+        v.y() -= center.y();
+        v.z() -= center.z();
+
+        // scale to fit into unit cube [-0.5, 0.5]
+        v.x() /= maxExtent;
+        v.y() /= maxExtent;
+        v.z() /= maxExtent;
+    }
 }
 
 void Renderer::destroyWindow() {
