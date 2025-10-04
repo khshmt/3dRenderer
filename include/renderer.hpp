@@ -102,7 +102,7 @@ private:
     std::vector<Triangle> _lastTrianglesToRender;
     Mesh _mesh;
 
-    vec3f_t _cameraPosition = {0, 0, 0};
+    vec3f_t _cameraPosition = {0, 0, -5};
     vec3f_t _rotation = {0.0, 0.0, 0.0};
 
     std::unique_ptr<std::thread> _processInputThread = nullptr;

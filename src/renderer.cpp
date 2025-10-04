@@ -311,7 +311,7 @@ void Renderer::update() {
     //}
 
     // this technique is better for consistent frame rate, and no high CPU usage observed on windows
-    while (!SDL_TICKS_PASSED(SDL_GetTicks(), _previousFrameTime + _frameTargetTime));
+    while (!SDL_TICKS_PASSED(SDL_GetTicks(), _previousFrameTime + _frameTargetTime)) {}
     _previousFrameTime = SDL_GetTicks();
 
     if (!_pause) {
@@ -325,16 +325,16 @@ void Renderer::update() {
             face_vertices[0] = _mesh.vertices[face.a - 1];
             face_vertices[1] = _mesh.vertices[face.b - 1];
             face_vertices[2] = _mesh.vertices[face.c - 1];
-            
+
             for (auto& vertex : face_vertices) {
                 vertex.rotateAroundX(_rotation.x());
                 vertex.rotateAroundY(_rotation.y());
                 vertex.rotateAroundZ(_rotation.z());
-                vertex.z() += 5;
+                vertex.z() -= _cameraPosition.z();  // translate the model away from camera
             }
 
             // face CUlling Test
-            if(_enableFaceCulling){
+            if (_enableFaceCulling) {
                 auto vec_a = face_vertices[0];
                 auto vec_b = face_vertices[1];
                 auto vec_c = face_vertices[2];
@@ -357,15 +357,16 @@ void Renderer::update() {
 
             // loop over face vertecies to perform projection
             Triangle projected_triangle;
-            for(auto& vertex : face_vertices){
+            for (auto& vertex : face_vertices) {
                 auto projected_point = project(vertex);
-                projected_point.x() += _width / 2; // translate
-                projected_point.y() += _height / 2; // translate
+                projected_point.x() += _width / 2;   // translate
+                projected_point.y() += _height / 2;  // translate
                 projected_triangle.points[i++] = projected_point;
             }
             _trianglesToRender.push_back(projected_triangle);
-            _lastTrianglesToRender = _trianglesToRender;
         }
+        // store the last frame triangles, incase of pause is hit we can still render the last frame
+        _lastTrianglesToRender = std::move(_trianglesToRender);  
     }
     _timer.endWatch();
 }
