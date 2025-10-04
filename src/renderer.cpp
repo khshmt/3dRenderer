@@ -372,11 +372,8 @@ void Renderer::update() {
 
 void Renderer::render(double timer_value) {
     _timer.startWatch(__func__);
-    SDL_SetRenderDrawColor(_rendererPtr.get(), 0, 0, 0, 255);
-    SDL_RenderClear(_rendererPtr.get());
 
     clearColorBuffer(0xFF000000);
-
     drawGrid();
 
     for (auto& triangle : _lastTrianglesToRender) {
