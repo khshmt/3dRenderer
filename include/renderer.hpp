@@ -4,6 +4,7 @@
 #include <memory>
 #include <thread>
 #include <vector>
+#include <string>
 // Internal
 #include "Mesh.hpp"
 #include "timer.hpp"
@@ -74,7 +75,6 @@ private:
     std::atomic_bool _wireframeModel{true};
     std::atomic_bool _VerticesModel{false};
     std::atomic_bool _raterizeModel{false};
-    std::atomic_bool _processInput{false};
 
     bool _firstFrame{true};
 
@@ -105,8 +105,6 @@ private:
 
     vec3f_t _cameraPosition = {0, 0, -5};
     vec3f_t _rotation = {0.0, 0.0, 0.0};
-
-    std::unique_ptr<std::thread> _processInputThread = nullptr;
     
     Timer _timer;
 };

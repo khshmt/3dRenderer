@@ -90,20 +90,22 @@ void Renderer::drawRect(int x, int y, int width, int height, uint32_t color) {
     }
 }
 
+// DDA(digital differential analyzer) line drawing algorithm
+// there is also another faster algorithm called Bresenham's line algorithm
 void Renderer::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
     int delta_x = (x1 - x0);
     int delta_y = (y1 - y0);
 
-    int longest_side_length = (abs(delta_x) >= abs(delta_y)) ? abs(delta_x) : abs(delta_y);
+    float longest_side_length = (abs(delta_x) >= abs(delta_y)) ? static_cast<float>(abs(delta_x)) : static_cast<float>(abs(delta_y));
 
-    float x_inc = delta_x / (float)longest_side_length;
-    float y_inc = delta_y / (float)longest_side_length;
+    float x_inc = delta_x / longest_side_length;
+    float y_inc = delta_y / longest_side_length;
 
     float current_x = x0;
     float current_y = y0;
 
     for (int i = 0; i <= longest_side_length; i++) {
-        drawPixel(round(current_x), round(current_y), color);
+        drawPixel(static_cast<int>(current_x), static_cast<int>(current_y), color);
         current_x += x_inc;
         current_y += y_inc;
     }
@@ -415,7 +417,7 @@ void Renderer::render(double timer_value) {
         t1 = t2;
     }
     const vec2i_t dims1{100, 30};
-    drawText(std::string(fmt::format("fps: {}", timer_value_)), dims1,
+    drawText(std::string("fps: "s + timer_value_), dims1,
              {(_width - dims1.x()) / 2, 40});
 
     const vec2i_t dims2{40, 30};
@@ -516,9 +518,6 @@ void Renderer::normalizeModel(std::vector<vec3f_t>& vertices) {
 
 void Renderer::destroyWindow() {
     // SDL_Quit();
-    _processInput = false;
-    if (_processInputThread && _processInputThread->joinable())
-        _processInputThread->join();
 }
 
 void Renderer::drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos) {

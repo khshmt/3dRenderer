@@ -11,7 +11,6 @@ find_package(SDL2 CONFIG REQUIRED)
 find_package(SDL2_ttf CONFIG REQUIRED)
 find_package(benchmark CONFIG REQUIRED)
 find_package(Tracy CONFIG REQUIRED)
-find_package(fmt CONFIG REQUIRED)
 
 add_library(Renderer SHARED ${CMAKE_SOURCE_DIR}/src/renderer.cpp)
 
@@ -19,7 +18,6 @@ target_link_libraries(Renderer PUBLIC
                         $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
                         $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
                         $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
-                        fmt::fmt-header-only
 )
 target_include_directories(Renderer PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_compile_definitions(Renderer PUBLIC RENDERER_EXPORTS)
