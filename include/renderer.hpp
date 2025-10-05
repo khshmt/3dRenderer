@@ -65,7 +65,9 @@ private:
     void clearColorBuffer(uint32_t color);
     void loadObjFileData(const std::string& obj_file_path);
     void normalizeModel(std::vector<vec3f_t>& vertices);
+    bool CullingCheck(std::array<vec3f_t, 3>& face_vertices);
     vec2f_t project(vec3f_t& point);
+
 
 private:
     std::atomic_bool _isRunning = false;

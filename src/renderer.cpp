@@ -118,20 +118,22 @@ void Renderer::drawTriangle(Triangle& tri, uint32_t color) {
 }
 
 //   flat bottom triangle
-//
-//        (x0,y0)
-//          / \
-//         /   \
-//        /     \
-//       /       \
-//      /         \
-//  (x1,y1)------(x2,y2)
+//  --------------> +x
+//  |       (x0,y0)
+//  |          / \
+//  |         /   \
+//  |        /     \
+//  |       /       \
+//  |      /         \
+//  v +y (x1,y1)------(x2,y2)
 void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, int x1, int y1, int x2,
                                            int y2, uint32_t color) {
-    // Find the two slopes (two triangle legs)
-    float inv_slope_1 = (float)(x1 - x0) / (y1 - y0);
-    float inv_slope_2 = (float)(x2 - x0) / (y2 - y0);
-
+    // Find the two inverse slopes (two triangle legs)
+    // inverse slope = run / rise, which tells us how much x changes for each unit change in y
+    // since we are looping over y (scanline by scanline), while slope = rise / run
+    float inv_slope_1 = static_cast<float>(x1 - x0) / (y1 - y0);
+    float inv_slope_2 = static_cast<float>(x2 - x0) / (y2 - y0);
+                std::cout << __func__ << inv_slope_1 << " " << inv_slope_2 << '\n';                       
     // Start x_start and x_end from the top vertex (x0,y0)
     float x_start = x0;
     float x_end = x0;
@@ -145,20 +147,21 @@ void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, int x1, int y1, int x
 }
 
 //   flat top triangle
-//
-//  (x0,y0)------(x1,y1)
-//      \         /
-//       \       /
-//        \     /
-//         \   /
-//          \ /
-//        (x2,y2)
+// -------------------> +x
+// | (x0,y0)------(x1,y1)
+// |     \         /
+// |      \       /
+// |       \     /
+// |        \   /
+// |         \ /
+// |       (x2,y2)
+// v +y
 void Renderer::rasterizeFlatTopTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
                                         uint32_t color) {
     // Find the two slopes (two triangle legs)
-    float inv_slope_1 = (float)(x2 - x0) / (y2 - y0);
-    float inv_slope_2 = (float)(x2 - x1) / (y2 - y1);
-
+    float inv_slope_1 = static_cast<float>(x2 - x0) / (y2 - y0);
+    float inv_slope_2 = static_cast<float>(x2 - x1) / (y2 - y1);
+std::cout << __func__ << inv_slope_1 << " " << inv_slope_2 << '\n';
     // Start x_start and x_end from the bottom vertex (x2,y2)
     float x_start = x2;
     float x_end = x2;
@@ -190,23 +193,16 @@ void Renderer::rasterizeFlatTopTriangle(int x0, int y0, int x1, int y1, int x2, 
 //                         (x2,y2)
 //
 void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color) {
-    auto [x0, y0, _]    = static_cast<std::tuple<int, int ,int>>(tri.points[0].get());
-    auto [x1, y1, __]   = static_cast<std::tuple<int, int ,int>>(tri.points[1].get());
-    auto [x2, y2, ___]  = static_cast<std::tuple<int, int ,int>>(tri.points[2].get());
+    std::array<std::pair<int, int>, 3> verts = {{{tri.points[0].x(), tri.points[0].y()},
+                                                 {tri.points[1].x(), tri.points[1].y()},
+                                                 {tri.points[2].x(), tri.points[2].y()}}};
 
-    // We need to sort the vertices by y-coordinate ascending (y0 < y1 < y2)
-    if (y0 > y1) {
-        std::swap(y0, y1);
-        std::swap(x0, x1);
-    }
-    if (y1 > y2) {
-        std::swap(y1, y2);
-        std::swap(x1, x2);
-    }
-    if (y0 > y1) {
-        std::swap(y0, y1);
-        std::swap(x0, x1);
-    }
+    // Sort by y, where y0 < y1 < y2
+    std::sort(verts.begin(), verts.end(), [](auto& a, auto& b) { return a.second < b.second; });
+
+    auto [x0, y0] = verts[0];
+    auto [x1, y1] = verts[1];
+    auto [x2, y2] = verts[2];
 
     if (y1 == y2) {
         // Draw flat-bottom triangle
@@ -216,9 +212,11 @@ void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color) {
         rasterizeFlatTopTriangle(x0, y0, x1, y1, x2, y2, color);
     } else {
         // Calculate the new vertex (Mx,My) using triangle similarity
+        // Mx - x0      y1 - y0
+        // --------- =  ---------  Wen need Mx
+        //  x2 - x0     y2 - y0
         int My = y1;
-        int Mx = (((x2 - x0) * (y1 - y0)) / (y2 - y0)) + x0;
-
+        int Mx = (((x2 - x0) * (y1 - y0)) / (y2 - y0)) + x0; 
         // Draw flat-bottom triangle
         rasterizeFlatBottomTriangle(x0, y0, x1, y1, Mx, My, color);
 
@@ -345,27 +343,9 @@ void Renderer::update() {
                 vertex.z() -= _cameraPosition.z();  // translate the model away from camera
             }
 
-            // face CUlling Test
-            if (_enableFaceCulling) {
-                auto vec_a = face_vertices[0];
-                auto vec_b = face_vertices[1];
-                auto vec_c = face_vertices[2];
-
-                // step1 calculate ab vector and ac vector
-                auto vec_ab = vec_b - vec_a;
-                auto vec_ac = vec_c - vec_a;
-
-                // step2 calculate the normal
-                auto vec_face_normal = vec_ab ^ vec_ac;
-                vec_face_normal.normalize();
-
-                //step3 find the camera ray (vector between camera origin and a point in the triangle)
-                auto vec_camera_ray = _cameraPosition - vec_a;
-
-                //ste4 check how aligned the camera ray with face normal
-                if (vec_face_normal * vec_camera_ray < 0.0f)
+            // Face CUlling Check
+            if (_enableFaceCulling && CullingCheck(face_vertices))
                     continue;
-            }
 
             // loop over face vertecies to perform projection
             Triangle projected_triangle;
@@ -476,6 +456,29 @@ void Renderer::loadObjFileData(const std::string& obj_file_path) {
     fclose(file);
     normalizeModel(_mesh.vertices);
     _timer.endWatch();
+}
+
+bool Renderer::CullingCheck(std::array<vec3f_t, 3>& face_vertices) {
+    auto vec_a = face_vertices[0];
+    auto vec_b = face_vertices[1];
+    auto vec_c = face_vertices[2];
+
+    // step1 calculate ab vector and ac vector
+    auto vec_ab = vec_b - vec_a;
+    auto vec_ac = vec_c - vec_a;
+
+    // step2 calculate the normal
+    auto vec_face_normal = vec_ab ^ vec_ac;
+    vec_face_normal.normalize();  // we could get rid of that line in case of just culling
+
+    //step3 find the camera ray (vector between camera origin and a point in the triangle)
+    auto vec_camera_ray = _cameraPosition - vec_a;
+
+    //step4 check how aligned the camera ray with face normal, if angle is less than 90 degree then we are looking at the back face
+    if (vec_face_normal * vec_camera_ray < 0.0f)  // zero means cos(90), less than zero means more than cos(90) degree angle
+        return true;  // back face
+
+    return false;  // front face
 }
 
 void Renderer::normalizeModel(std::vector<vec3f_t>& vertices) {
