@@ -133,7 +133,7 @@ void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, int x1, int y1, int x
     // since we are looping over y (scanline by scanline), while slope = rise / run
     float inv_slope_1 = static_cast<float>(x1 - x0) / (y1 - y0);
     float inv_slope_2 = static_cast<float>(x2 - x0) / (y2 - y0);
-                std::cout << __func__ << inv_slope_1 << " " << inv_slope_2 << '\n';                       
+                     
     // Start x_start and x_end from the top vertex (x0,y0)
     float x_start = x0;
     float x_end = x0;
@@ -161,7 +161,7 @@ void Renderer::rasterizeFlatTopTriangle(int x0, int y0, int x1, int y1, int x2, 
     // Find the two slopes (two triangle legs)
     float inv_slope_1 = static_cast<float>(x2 - x0) / (y2 - y0);
     float inv_slope_2 = static_cast<float>(x2 - x1) / (y2 - y1);
-std::cout << __func__ << inv_slope_1 << " " << inv_slope_2 << '\n';
+
     // Start x_start and x_end from the bottom vertex (x2,y2)
     float x_start = x2;
     float x_end = x2;
@@ -354,9 +354,16 @@ void Renderer::update() {
                 projected_point.x() += _width / 2;   // translate
                 projected_point.y() += _height / 2;  // translate
                 projected_triangle.points[i++] = projected_point;
+
+                projected_triangle.avg_depth = (face_vertices[0].z() + face_vertices[1].z() + face_vertices[2].z()) / 3.0f;
             }
             _trianglesToRender.push_back(projected_triangle);
         }
+        // sort triangles from back to front based on average depth
+        // C++ std::sort is an introspective sort algorithm, which is a hybrid sorting algorithm
+        // complexity O(n log(n))
+        std::sort(std::begin(_trianglesToRender), std::end(_trianglesToRender),
+                  [](const Triangle& t1, const Triangle& t2) { return t1.avg_depth > t2.avg_depth; });
         // store the last frame triangles, incase of pause is hit we can still render the last frame
         _lastTrianglesToRender = std::move(_trianglesToRender);  
     }
