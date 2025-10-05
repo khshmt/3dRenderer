@@ -20,6 +20,8 @@ struct Triangle {
     using point = vec2f_t;
 
     std::array<point, 3> points;
+    float avg_depth;
+    uint32_t color;
 };
 
 struct Mesh {
