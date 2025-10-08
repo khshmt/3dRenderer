@@ -62,6 +62,8 @@ bool Renderer:: setupWindow(const std::string& obj_file_path) {
         return false;
     }
 
+    constructProjectionMatrix(60, static_cast<float>(_height)/_width, 0.1, 100.0);
+
     loadObjFileData(obj_file_path);
     return true;
 }
@@ -306,9 +308,30 @@ bool Renderer::getWindowState() {
     return _isRunning;
 }
 
-vec2f_t Renderer::project(vec3f_t& point) {
-    // this projection is perspective projection if you want isometric do not divide by the z-component
-    return {(_fovFactor * point.x()) / point.z(), (_fovFactor * point.y()) / point.z()};
+void Renderer::constructProjectionMatrix(float fov, float aspectRatio, float znear, float zfar) {
+    // | aspectRatio*fovRad    0               0                                           0 |
+    // | 0                    fovRad           0                                           0 |
+    // | 0                    0               zfar/(zfar-znear)   (-zfar*znear)/(zfar-znear) |
+    // | 0                    0               1                                            0 |
+    float fovRad = 1.0f / tanf(fov * 0.5f / 180.0f * 3.14159f);
+    _persProjMatrix(0, 0) = aspectRatio * fovRad;
+    _persProjMatrix(1, 1) = fovRad;
+    _persProjMatrix(2, 2) = zfar / (zfar - znear);
+    _persProjMatrix(2, 3) = (-zfar * znear) / (zfar - znear);
+    _persProjMatrix(3, 2) = 1.0f;
+    _persProjMatrix(3, 3) = 0.0f;
+}
+
+vec2f_t Renderer::project(vec3f_t& point) { 
+    Matrix<float, 4, 1> vec =
+        _persProjMatrix * Matrix<float, 4, 1>{point.x(), point.y(), point.z(), 1.0f};
+    // TODO: Clipping against near plane should be done here
+    if (vec(3, 0) != 0.0f) {
+        vec(0, 0) /= vec(3, 0);
+        vec(1, 0) /= vec(3, 0);
+        vec(2, 0) /= vec(3, 0);
+    }
+    return {vec(0, 0), vec(1, 0)};
 }
 
 void Renderer::update() {
@@ -364,8 +387,11 @@ void Renderer::update() {
             Triangle projected_triangle;
             for (auto& vertex : face_vertices) {
                 auto projected_point = project(vertex);
-                projected_point.x() += _width / 2;   // translate
-                projected_point.y() += _height / 2;  // translate
+                projected_point.x() *= _width / 2.0;   // sclae
+                projected_point.y() *= _height / 2.0;  // scale
+
+                projected_point.x() += _width / 2.0;   // translate
+                projected_point.y() += _height / 2.0;  // translate
                 projected_triangle.points[i++] = projected_point;
 
                 projected_triangle.avg_depth = (face_vertices[0].z() + face_vertices[1].z() + face_vertices[2].z()) / 3.0f;

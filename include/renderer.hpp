@@ -68,6 +68,7 @@ private:
     void loadObjFileData(const std::string& obj_file_path);
     void normalizeModel(std::vector<vec3f_t>& vertices);
     bool CullingCheck(std::array<vec3f_t, 3>& face_vertices);
+    void constructProjectionMatrix(float fov, float aspectRatio, float znear, float zfar);
     vec2f_t project(vec3f_t& point);
 
 
@@ -84,8 +85,6 @@ private:
 
     int _width{800};
     int _height{600};
-    float _fovFactor = 640;  // for perspective projection
-    //float _fovFactor = 128;  // for isometric projection
 
     uint32_t _previousFrameTime{0};
     const uint32_t _fps{30};
@@ -108,6 +107,7 @@ private:
     Mesh _mesh;
 
     Matrix<float, 4, 4> _worldMatrix;
+    Matrix<float, 4, 4> _persProjMatrix;  // perspective projection matrix
     vec3f_t _cameraPosition = {0, 0, -5};
     
     Timer _timer;
