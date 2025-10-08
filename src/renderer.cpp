@@ -342,7 +342,6 @@ void Renderer::update() {
                                              _mesh.translation.z());
         _worldMatrix.setRotation(_mesh.rotation.x(), _mesh.rotation.y(),
                                           _mesh.rotation.z());
-
         for (const auto& face : _mesh.faces) {
             int i{0};
             std::array<vec3f_t, 3> face_vertices;
@@ -361,7 +360,6 @@ void Renderer::update() {
             // Face CUlling Check
             if (_enableFaceCulling && CullingCheck(face_vertices))
                     continue;
-
             // loop over face vertecies to perform projection
             Triangle projected_triangle;
             for (auto& vertex : face_vertices) {
@@ -497,7 +495,7 @@ bool Renderer::CullingCheck(std::array<vec3f_t, 3>& face_vertices) {
     auto vec_camera_ray = _cameraPosition - vec_a;
 
     //step4 check how aligned the camera ray with face normal, if angle is less than 90 degree then we are looking at the back face
-    if (vec_face_normal.dot(vec_camera_ray) < 0.0f)  // zero means cos(90), less than zero means more than cos(90) degree angle
+    if (vec_face_normal * vec_camera_ray < 0.0f)  // zero means cos(90), less than zero means more than cos(90) degree angle
         return true;  // back face
 
     return false;  // front face

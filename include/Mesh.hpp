@@ -3,7 +3,7 @@
 #include <array>
 #include <vector>
 // inernal
-#include "matrix.hpp"
+#include "vector.hpp"
 
 using point = vec2f_t;
 using vertex = vec3f_t;

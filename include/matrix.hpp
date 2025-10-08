@@ -1,6 +1,7 @@
 #pragma once
 // Stl
 #include <vector>
+#include <iostream>
 
 template<typename T, size_t M, size_t N>
 class Matrix {
@@ -8,6 +9,7 @@ public:
     Matrix()
         : _rows(M),
           _cols(N), _data(M * N, T{}) { setEye(); }
+
     Matrix(const std::initializer_list<T>& list) : _rows(M), _cols(N), _data(list) {
         if (list.size() != M * N) {
             throw std::invalid_argument("Initializer list size does not match matrix dimensions.");
@@ -79,16 +81,16 @@ public:
     }
 
     friend std::ostream& operator<<(std::ostream& os, const Matrix& m) {
-        //for (size_t i = 0; i < m._rows; i++) {
-        //    os << "[ ";
-        //    for (size_t j = 0; j < m._cols; j++) {
-        //        os << m(i, j);
-        //        if (j + 1 < m._cols)
-        //            os << ", ";
-        //    }
-        //    os << " ]\n";
-        //}
-        //return os;
+        for (size_t i = 0; i < m._rows; i++) {
+            os << "[ ";
+            for (size_t j = 0; j < m._cols; j++) {
+                os << m(i, j);
+                if (j + 1 < m._cols)
+                    os << ", ";
+            }
+            os << " ]\n";
+        }
+        return os;
     }
 
     void setEye() {
@@ -175,85 +177,6 @@ public:
         }
     }
 
-    // dot product
-    float dot(Matrix<T, M, N>& other) {
-        if (_cols == 1 && other.size() == _rows) {
-            float dot_product = 0.0f;
-            for (size_t i = 0; i < _rows; i++) {
-                dot_product += (_data[i] * other(i, 0));
-            }
-            return dot_product;
-        } else {
-            throw std::invalid_argument("Matrix is not a vector.");
-        }
-    }
-
-    float magnitude() {
-        if (_cols == 1) {
-            float mag = 0.0f;
-            for (size_t i = 0; i < _rows; i++) {
-                mag += _data[i] * _data[i];
-            }
-            return std::sqrt(mag);
-        } else {
-            throw std::invalid_argument("Matrix is not a vector.");
-        }
-    }
-
-    void normalize() {
-        if (_cols == 1) {
-            auto mag = this->magnitude();
-            for (size_t i = 0; i < _rows; i++) {
-                _data[i] /= mag;
-            }
-        } else {
-            throw std::invalid_argument("Matrix is not a vector.");
-        }
-    }
-
-    T& x() {
-        if (_rows >= 1 && _cols == 1)
-            return _data[0];
-        else
-            throw std::invalid_argument("Matrix is not a vector or has insufficient rows.");
-    }
-
-    T& y() {
-        if (_rows >= 2 && _cols == 1)
-            return _data[1];
-        else
-            throw std::invalid_argument("Matrix is not a vector or has insufficient rows.");
-    }
-
-    T& z() {
-        if (_rows >= 3 && _cols == 1)
-            return _data[2];
-        else
-            throw std::invalid_argument("Matrix is not a vector or has insufficient rows.");
-    }
-
-    T x() const {
-        if (_rows >= 1 && _cols == 1)
-            return _data[0];
-        else
-            throw std::invalid_argument("Matrix is not a vector or has insufficient rows.");
-    }
-
-    T y() const {
-        if (_rows >= 2 && _cols == 1)
-            return _data[1];
-        else
-            throw std::invalid_argument("Matrix is not a vector or has insufficient rows.");
-    }
-
-    T z() const {
-        if (_rows >= 3 && _cols == 1)
-            return _data[2];
-        else
-            throw std::invalid_argument("Matrix is not a vector or has insufficient rows.");
-    }
-
-
     size_t size() const { return _rows * _cols; }
 
 private:
@@ -294,10 +217,10 @@ Matrix<T, M, N> operator*(const Matrix<T, M, K>& a, const Matrix<T, K, N>& b) {
 }
 
 
-using vec2f_t = Matrix<float, 2, 1>;
-using vec3f_t = Matrix<float, 3, 1>;
-using vec4f_t = Matrix<float, 4, 1>;
-              
-using vec2i_t = Matrix<int, 2, 1>;
-using vec3i_t = Matrix<int, 3, 1>;
-using vec4i_t = Matrix<int, 4, 1>;
+//using vec2f_t = Matrix<float, 2, 1>;
+//using vec3f_t = Matrix<float, 3, 1>;
+//using vec4f_t = Matrix<float, 4, 1>;
+//              
+//using vec2i_t = Matrix<int, 2, 1>;
+//using vec3i_t = Matrix<int, 3, 1>;
+//using vec4i_t = Matrix<int, 4, 1>;

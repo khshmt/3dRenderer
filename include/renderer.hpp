@@ -8,6 +8,7 @@
 // internal
 #include "Mesh.hpp"
 #include "timer.hpp"
+#include "vector.hpp"
 #include "matrix.hpp"
 // 3d-Party_Libs
 #include <SDL2/SDL.h>
