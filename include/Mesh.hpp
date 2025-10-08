@@ -1,9 +1,12 @@
 #pragma once
-// STL
+// stl
 #include <array>
 #include <vector>
-// INTERNAL
-#include "vector.hpp"
+// inernal
+#include "matrix.hpp"
+
+using point = vec2f_t;
+using vertex = vec3f_t;
 
 // Facse and triangle are the same and could be used interchangeably
 
@@ -17,17 +20,15 @@ struct Face {
 
 //stores the actual vertex values x and y
 struct Triangle {
-    using point = vec2f_t;
-
     std::array<point, 3> points;
     float avg_depth;
     uint32_t color;
 };
 
 struct Mesh {
-    using vertex = vec3f_t;
-
-    std::vector<Face> faces;
-    std::vector<vertex> vertices;
-    vec3f_t rotation;
+    std::vector<vertex> vertices;  // vector the mesh vertices
+    std::vector<Face> faces;  // each face stores the indices of the vertices that make up the face
+    vec3f_t rotation{0, 0, 0};     //roation with x, y, z
+    vec3f_t scale{1.0, 1.0, 1.0};        // scale with x, y, z
+    vec3f_t translation{0, 0, 0};  // translation with x, y, z
 };

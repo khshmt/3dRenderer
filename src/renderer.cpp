@@ -325,9 +325,23 @@ void Renderer::update() {
     _previousFrameTime = SDL_GetTicks();
 
     if (!_pause) {
-        _rotation.x() += 0.01;
-        _rotation.y() += 0.01;
-        _rotation.z() += 0.01;
+        // Scale
+        _mesh.scale.x() += 0.02;
+        _mesh.scale.y() += 0.02;
+        // Translation
+        _mesh.translation.x() += 0.04;
+        _mesh.translation.z() = -_cameraPosition.z();
+        // Roation
+        _mesh.rotation.x() += 0.01;
+        _mesh.rotation.y() += 0.01;
+        _mesh.rotation.z() += 0.01;
+
+        _worldMatrix.setEye();
+        _worldMatrix.setScale(_mesh.scale.x(), _mesh.scale.y(), _mesh.scale.z());
+        _worldMatrix.setTranslation(_mesh.translation.x(), _mesh.translation.y(),
+                                             _mesh.translation.z());
+        _worldMatrix.setRotation(_mesh.rotation.x(), _mesh.rotation.y(),
+                                          _mesh.rotation.z());
 
         for (const auto& face : _mesh.faces) {
             int i{0};
@@ -337,10 +351,11 @@ void Renderer::update() {
             face_vertices[2] = _mesh.vertices[face.c - 1];
 
             for (auto& vertex : face_vertices) {
-                vertex.rotateAroundX(_rotation.x());
-                vertex.rotateAroundY(_rotation.y());
-                vertex.rotateAroundZ(_rotation.z());
-                vertex.z() -= _cameraPosition.z();  // translate the model away from camera
+                Matrix<float, 4, 1> vec =
+                    _worldMatrix * Matrix<float, 4, 1>{vertex.x(), vertex.y(), vertex.z(), 1};
+                vertex.x() = vec(0, 0);
+                vertex.y() = vec(1, 0);
+                vertex.z() = vec(2, 0);
             }
 
             // Face CUlling Check
@@ -482,7 +497,7 @@ bool Renderer::CullingCheck(std::array<vec3f_t, 3>& face_vertices) {
     auto vec_camera_ray = _cameraPosition - vec_a;
 
     //step4 check how aligned the camera ray with face normal, if angle is less than 90 degree then we are looking at the back face
-    if (vec_face_normal * vec_camera_ray < 0.0f)  // zero means cos(90), less than zero means more than cos(90) degree angle
+    if (vec_face_normal.dot(vec_camera_ray) < 0.0f)  // zero means cos(90), less than zero means more than cos(90) degree angle
         return true;  // back face
 
     return false;  // front face

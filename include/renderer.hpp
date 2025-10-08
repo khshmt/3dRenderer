@@ -1,13 +1,14 @@
 #pragma once
-// STL
+// stl
 #include <atomic>
 #include <memory>
 #include <thread>
 #include <vector>
 #include <string>
-// Internal
+// internal
 #include "Mesh.hpp"
 #include "timer.hpp"
+#include "matrix.hpp"
 // 3d-Party_Libs
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -105,8 +106,8 @@ private:
     std::vector<Triangle> _lastTrianglesToRender;
     Mesh _mesh;
 
+    Matrix<float, 4, 4> _worldMatrix;
     vec3f_t _cameraPosition = {0, 0, -5};
-    vec3f_t _rotation = {0.0, 0.0, 0.0};
     
     Timer _timer;
 };
