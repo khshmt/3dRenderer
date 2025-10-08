@@ -6,9 +6,11 @@
 template<typename T, size_t M, size_t N>
 class Matrix {
 public:
-    Matrix()
-        : _rows(M),
-          _cols(N), _data(M * N, T{}) { setEye(); }
+    Matrix() : _rows(M), _cols(N), _data(M * N, T{}) {
+        if constexpr (M == N) {
+            setEye();
+        }
+    }
 
     Matrix(const std::initializer_list<T>& list) : _rows(M), _cols(N), _data(list) {
         if (list.size() != M * N) {
@@ -16,58 +18,32 @@ public:
         }
     }
     
-    Matrix(const Matrix<T, M, N>& other)
-        : _rows(other._rows), _cols(other._cols), _data(other._data) {}
-
-    Matrix<T, M, N>& operator=(const Matrix<T, M, N>& other) {
-        if (this->_data != other._data) {
-            this->_rows = other._rows;
-            this->_cols = other._cols;
-            this->_data = other._data;
-        }
-        return *this;
-    }
-
-    Matrix(Matrix<T, M, N>&& other) noexcept
-        : _rows(other._rows), _cols(other._cols), _data(std::move(other._data)) {
-        other._rows = 0;
-        other._cols = 0;
-    }
-
-    Matrix<T, M, N>& operator=(Matrix<T, M, N>&& other) noexcept {
-        if (this != &other) {
-            this->_rows = other._rows;
-            this->_cols = other._cols;
-            this->_data = std::move(other._data);
-            other._rows = 0;
-            other._cols = 0;
-        }
-        return *this;
-    }
+    Matrix(const Matrix& other) = default;
+    Matrix& operator=(const Matrix& other) = default;
+    Matrix(Matrix&& other) noexcept = default;
+    Matrix& operator=(Matrix&& other) noexcept = default;
 
     T operator()(size_t row, size_t col) const { return _data[row * _cols + col]; }
     T& operator()(size_t row, size_t col) { return _data[row * _cols + col]; }
+    size_t size() const { return _rows * _cols; }
+    T cols() const { return _cols; }
+    T rows() const { return _rows; }
 
     Matrix<T, M, N> operator+(const Matrix<T, M, N>& other) const {
-        checkSameSize(other);
-        Matrix<T, M, N> result;
-        for (size_t i = 0; i < _data.size(); ++i) {
-            result._data[i] = _data[i] + other._data[i];
-        }
+        Matrix result;
+        std::transform(_data.begin(), _data.end(), other._data.begin(), result._data.begin(),
+                       std::plus<>());
         return result;
     }
 
     Matrix<T, M, N> operator-(const Matrix<T, M, N>& other) const {
-        checkSameSize(other);
         Matrix<T, M, N> result;
-        for (size_t i = 0; i < _data.size(); ++i) {
-            result._data[i] = _data[i] - other._data[i];
-        }
+        std::transform(_data.begin(), _data.end(), other._data.begin(), result._data.begin(),
+                       std::minus<>());
         return result;
     }
 
     Matrix<T, M, N> operator*(const Matrix<T, M, N>& other) const {
-        checkGoodForMultiplication(other);
         Matrix<T, M, N> result;
         for (size_t i = 0; i < _rows; i++) {
             for (size_t j = 0; j < _cols; j++) {
@@ -145,55 +121,6 @@ public:
         return Rz * Ry * Rx;  // order of multiplication Doesn't matter
     }
 
-    // vector OPeration
-    void scale(T factor) { 
-        if (_cols == 1) {
-            for (size_t i = 0; i < _rows; i++) {
-                _data[i] *= factor;
-            }
-        } else {
-            throw std::invalid_argument("Matrix is not a vector.");
-        }
-    }
-
-    void divide(T factor) {
-        if (_cols == 1) {
-            for (size_t i = 0; i < _rows; i++) {
-                _data[i] /= factor;
-            }
-        } else {
-            throw std::invalid_argument("Matrix is not a vector.");
-        }
-    }
-
-    // cross product
-    Matrix<T, M, N> operator^(Matrix<T, M, N>& other) {
-        if (_cols == 1 && other.size() == _rows) {
-            return {(_data[1] * other._data[2] - _data[2] * other._data[1]),
-                    (_data[2] * other._data[0] - _data[0] * other._data[2]),
-                    (_data[0] * other._data[1] - _data[1] * other._data[0])};
-        } else {
-            throw std::invalid_argument("Matrix is not a vector.");
-        }
-    }
-
-    size_t size() const { return _rows * _cols; }
-
-private:
-    T checkGoodForMultiplication(const Matrix<T, M, N>& other) const {
-        if (_rows != other._rows || _cols != other._cols) {
-            throw std::invalid_argument("Matrix dimensions do not match for multiplication.");
-        }
-        return T{};
-    }
-
-    T checkSameSize(const Matrix<T, M, N>& other) const {
-        if (_rows != other._rows || _cols != other._cols) {
-            throw std::invalid_argument("Matrix dimensions do not match for addition/subtraction.");
-        }
-        return T{};
-    }
-
 private:
     template <typename T, size_t M, size_t K, size_t N>
     friend Matrix<T, M, N> operator*(const Matrix<T, M, K>& a, const Matrix<T, K, N>& b);
@@ -215,12 +142,3 @@ Matrix<T, M, N> operator*(const Matrix<T, M, K>& a, const Matrix<T, K, N>& b) {
     }
     return result;
 }
-
-
-//using vec2f_t = Matrix<float, 2, 1>;
-//using vec3f_t = Matrix<float, 3, 1>;
-//using vec4f_t = Matrix<float, 4, 1>;
-//              
-//using vec2i_t = Matrix<int, 2, 1>;
-//using vec3i_t = Matrix<int, 3, 1>;
-//using vec4i_t = Matrix<int, 4, 1>;
