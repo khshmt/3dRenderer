@@ -1,6 +1,7 @@
 #pragma once
 // Stl
 #include <vector>
+#include <array>
 #include <iostream>
 
 template<typename T, size_t M, size_t N>
@@ -12,10 +13,11 @@ public:
         }
     }
 
-    Matrix(const std::initializer_list<T>& list) : _rows(M), _cols(N), _data(list) {
+    Matrix(const std::initializer_list<T>& list) : _rows(M), _cols(N) {
         if (list.size() != M * N) {
             throw std::invalid_argument("Initializer list size does not match matrix dimensions.");
         }
+        std::copy(std::begin(list), std::end(list), std::begin(_data));
     }
     
     Matrix(const Matrix& other) = default;
@@ -126,7 +128,7 @@ private:
     friend Matrix<T, M, N> operator*(const Matrix<T, M, K>& a, const Matrix<T, K, N>& b);
     size_t _rows;
     size_t _cols;
-    std::vector<T> _data;
+    std::array<T, M * N> _data;
 };
 
 template <typename T, size_t M, size_t K, size_t N>

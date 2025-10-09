@@ -62,7 +62,7 @@ bool Renderer:: setupWindow(const std::string& obj_file_path) {
         return false;
     }
 
-    constructProjectionMatrix(60, static_cast<float>(_height)/_width, 0.1, 100.0);
+    constructProjectionMatrix(60, static_cast<float>(_height)/_width, 0.01, 100.0);
 
     loadObjFileData(obj_file_path);
     return true;
@@ -325,7 +325,12 @@ void Renderer::constructProjectionMatrix(float fov, float aspectRatio, float zne
 vec2f_t Renderer::project(vec3f_t& point) { 
     Matrix<float, 4, 1> vec =
         _persProjMatrix * Matrix<float, 4, 1>{point.x(), point.y(), point.z(), 1.0f};
+    
     // TODO: Clipping against near plane should be done here
+    //TODO
+    
+    // perform perspective divide
+    //w_component = vec(3, 0) is the original Z value of the 3d point before projection
     if (vec(3, 0) != 0.0f) {
         vec(0, 0) /= vec(3, 0);
         vec(1, 0) /= vec(3, 0);
@@ -463,7 +468,6 @@ void Renderer::render(double timer_value) {
 }
 
 void Renderer::loadObjFileData(const std::string& obj_file_path) {
-    _timer.startWatch(__func__);
     FILE* file = fopen(obj_file_path.c_str(), "r");
     if (!file) {
         std::cerr << "Error opening file: " << obj_file_path << '\n';
@@ -501,7 +505,6 @@ void Renderer::loadObjFileData(const std::string& obj_file_path) {
     }
     fclose(file);
     normalizeModel(_mesh.vertices);
-    _timer.endWatch();
 }
 
 bool Renderer::CullingCheck(std::array<vec3f_t, 3>& face_vertices) {
