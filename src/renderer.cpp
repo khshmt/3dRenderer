@@ -407,11 +407,16 @@ void Renderer::update() {
             Triangle projected_triangle;
             for (auto& vertex : face_vertices) {
                 auto projected_point = project(vertex);
-                projected_point.x() *= _width / 2.0;   // sclae
-                projected_point.y() *= _height / 2.0;  // scale
+                // scale into view
+                projected_point.x() *= _width / 2.0;   
+                projected_point.y() *= _height / 2.0; 
 
-                projected_point.x() += _width / 2.0;   // translate
-                projected_point.y() += _height / 2.0;  // translate
+                // invert y axis to account for flipped screen y coordinates
+                projected_point.y() *= -1; 
+
+                // translate to the center of the screen
+                projected_point.x() += _width / 2.0;  
+                projected_point.y() += _height / 2.0;
                 projected_triangle.points[i++] = projected_point;
 
                 projected_triangle.avg_depth = (face_vertices[0].z() + face_vertices[1].z() + face_vertices[2].z()) / 3.0f;
