@@ -339,6 +339,19 @@ vec2f_t Renderer::project(vec3f_t& point) {
     return {vec(0, 0), vec(1, 0)};
 }
 
+uint32_t Renderer::calculateLightIntensityColor(uint32_t original_color, float percentage_factor) {
+    if (percentage_factor < 0)
+        percentage_factor = 0;
+    if (percentage_factor > 1)
+        percentage_factor = 1;
+    uint32_t a = original_color & 0xFF000000;
+    uint32_t r = (original_color & 0x00FF0000) * percentage_factor;
+    uint32_t g = (original_color & 0x0000FF00) * percentage_factor;
+    uint32_t b = (original_color & 0x000000FF) * percentage_factor;
+
+    return (a | (r & 0x00FF0000) | (g & 0x0000FF00) | (b & 0x000000FF)); // new color
+}
+
 void Renderer::update() {
     _timer.startWatch(__func__);
 
@@ -354,10 +367,10 @@ void Renderer::update() {
 
     if (!_pause) {
         // Scale
-        _mesh.scale.x() += 0.02;
-        _mesh.scale.y() += 0.02;
+        //_mesh.scale.x() += 0.02;
+        //_mesh.scale.y() += 0.02;
         // Translation
-        _mesh.translation.x() += 0.04;
+        //_mesh.translation.x() += 0.04;
         _mesh.translation.z() = -_cameraPosition.z();
         // Roation
         _mesh.rotation.x() += 0.01;
@@ -370,7 +383,7 @@ void Renderer::update() {
                                              _mesh.translation.z());
         _worldMatrix.setRotation(_mesh.rotation.x(), _mesh.rotation.y(),
                                           _mesh.rotation.z());
-        for (const auto& face : _mesh.faces) {
+        for (auto& face : _mesh.faces) {
             int i{0};
             std::array<vec3f_t, 3> face_vertices;
             face_vertices[0] = _mesh.vertices[face.a - 1];
@@ -386,7 +399,9 @@ void Renderer::update() {
             }
 
             // Face CUlling Check
-            if (_enableFaceCulling && CullingCheck(face_vertices))
+            auto [back_face, face_normal] = CullingCheck(face_vertices);
+            face.normal = face_normal;
+            if (_enableFaceCulling && back_face)
                     continue;
             // loop over face vertecies to perform projection
             Triangle projected_triangle;
@@ -400,6 +415,8 @@ void Renderer::update() {
                 projected_triangle.points[i++] = projected_point;
 
                 projected_triangle.avg_depth = (face_vertices[0].z() + face_vertices[1].z() + face_vertices[2].z()) / 3.0f;
+                projected_triangle.normal = face.normal;
+                projected_triangle.color = face.color;
             }
             _trianglesToRender.push_back(projected_triangle);
         }
@@ -427,7 +444,9 @@ void Renderer::render(double timer_value) {
             drawRect(triangle.points[2].x(), triangle.points[2].y(), 3, 3, 0xFFFF0000);
         }
         if (_raterizeModel) {
-            rasterizeTriangle(triangle, 0xFFFFFFFF);
+            auto light_intensity_factor = -(triangle.normal * _lightDirection);
+            auto color = calculateLightIntensityColor(triangle.color, light_intensity_factor);
+            rasterizeTriangle(triangle, color);
         }
         if (_wireframeModel) {
             uint32_t color;
@@ -499,7 +518,10 @@ void Renderer::loadObjFileData(const std::string& obj_file_path) {
                 std::cerr << "Error parsing face line: " << line << '\n';
                 continue;
             }
-            Face face = {.a = vertex_indicies[0], .b = vertex_indicies[1], .c = vertex_indicies[2]};
+            Face face = {.a = vertex_indicies[0],
+                         .b = vertex_indicies[1],
+                         .c = vertex_indicies[2],
+                         .color = 0xFFFFFFFF};
             _mesh.faces.push_back(face);
         }
     }
@@ -507,7 +529,7 @@ void Renderer::loadObjFileData(const std::string& obj_file_path) {
     normalizeModel(_mesh.vertices);
 }
 
-bool Renderer::CullingCheck(std::array<vec3f_t, 3>& face_vertices) {
+std::pair<bool, vec3f_t> Renderer::CullingCheck(std::array<vec3f_t, 3>& face_vertices) {
     auto vec_a = face_vertices[0];
     auto vec_b = face_vertices[1];
     auto vec_c = face_vertices[2];
@@ -518,16 +540,17 @@ bool Renderer::CullingCheck(std::array<vec3f_t, 3>& face_vertices) {
 
     // step2 calculate the normal
     auto vec_face_normal = vec_ab ^ vec_ac;
-    vec_face_normal.normalize();  // we could get rid of that line in case of just culling
+    // this line is important for lighting calculation, otherwise the light intensity will be wrong
+    vec_face_normal.normalize();  
 
     //step3 find the camera ray (vector between camera origin and a point in the triangle)
     auto vec_camera_ray = _cameraPosition - vec_a;
 
     //step4 check how aligned the camera ray with face normal, if angle is less than 90 degree then we are looking at the back face
     if (vec_face_normal * vec_camera_ray < 0.0f)  // zero means cos(90), less than zero means more than cos(90) degree angle
-        return true;  // back face
+        return {true, vec_face_normal};  // back face
 
-    return false;  // front face
+    return {false, vec_face_normal};  // front face
 }
 
 void Renderer::normalizeModel(std::vector<vec3f_t>& vertices) {

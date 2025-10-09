@@ -12,6 +12,7 @@ using vertex = vec3f_t;
 
 // face stores triangle vertices indices
 struct Face {
+    vec3f_t normal;
     int a;
     int b;
     int c;
@@ -21,6 +22,7 @@ struct Face {
 //stores the actual vertex values x and y
 struct Triangle {
     std::array<point, 3> points;
+    vec3f_t normal;
     float avg_depth;
     uint32_t color;
 };

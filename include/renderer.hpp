@@ -67,9 +67,10 @@ private:
     void clearColorBuffer(uint32_t color);
     void loadObjFileData(const std::string& obj_file_path);
     void normalizeModel(std::vector<vec3f_t>& vertices);
-    bool CullingCheck(std::array<vec3f_t, 3>& face_vertices);
+    std::pair<bool, vec3f_t> CullingCheck(std::array<vec3f_t, 3>& face_vertices);
     void constructProjectionMatrix(float fov, float aspectRatio, float znear, float zfar);
     vec2f_t project(vec3f_t& point);
+    uint32_t calculateLightIntensityColor(uint32_t original_color, float percentage_factor);
 
 
 private:
@@ -109,6 +110,7 @@ private:
     Matrix<float, 4, 4> _worldMatrix;
     Matrix<float, 4, 4> _persProjMatrix;  // perspective projection matrix
     vec3f_t _cameraPosition = {0, 0, -5};
+    vec3f_t _lightDirection = {0, 0, 1};
     
     Timer _timer;
 };
