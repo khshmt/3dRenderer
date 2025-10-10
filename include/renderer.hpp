@@ -27,6 +27,15 @@
 
 using namespace std::literals;
 
+enum class RenderMode {
+    WIREFRAME,
+    WIREFRAME_VERTICES,
+    RASTERIZE,                
+    RASTERIZE_WIREFRAME,
+    TEXTURE,
+    TEXTURE_WIREFRAME
+};
+
 /*
    this Rendering System is Left-Handed system where Z axis grows inside the screen
    Left-Handed Coordinate System (Z out of the screen)
@@ -58,6 +67,8 @@ private:
     void drawRect(int x, int y, int width, int height, uint32_t color);
     void drawLine(int x0, int y0, int x1, int y1, uint32_t color);
     void drawTriangle(Triangle& tri, uint32_t color);
+    void drawTextureTriangle(const vec2f_t& p0, const vec2f_t& t0, const vec2f_t& p1,
+                             const vec2f_t& t1, const vec2f_t& p2, const vec2f_t& t2, uint32_t* texture);
     void rasterizeTriangle(Triangle& tri, uint32_t color);
     void rasterizeFlatBottomTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
                                      uint32_t color = 0xFFFF0000);
@@ -77,10 +88,6 @@ private:
     std::atomic_bool _isRunning = false;
     std::atomic_bool _pause{false};
     std::atomic_bool _enableFaceCulling{false};
-
-    std::atomic_bool _wireframeModel{true};
-    std::atomic_bool _VerticesModel{false};
-    std::atomic_bool _raterizeModel{false};
 
     bool _firstFrame{true};
 
@@ -111,6 +118,6 @@ private:
     Matrix<float, 4, 4> _persProjMatrix;  // perspective projection matrix
     vec3f_t _cameraPosition = {0, 0, -5};
     vec3f_t _lightDirection = {0, 0, 1};
-    
+    RenderMode _currentRenderMode = RenderMode::WIREFRAME;
     Timer _timer;
 };

@@ -5,14 +5,14 @@
 // inernal
 #include "vector.hpp"
 
-using point = vec2f_t;
-using vertex = vec3f_t;
-
 // Facse and triangle are the same and could be used interchangeably
 
 // face stores triangle vertices indices
 struct Face {
     vec3f_t normal;
+    vec2f_t a_uv;  // texture coordinates
+    vec2f_t b_uv;
+    vec2f_t c_uv;
     int a;
     int b;
     int c;
@@ -21,14 +21,15 @@ struct Face {
 
 //stores the actual vertex values x and y
 struct Triangle {
-    std::array<point, 3> points;
+    std::array<vec2f_t, 3> points;
+    std::array<vec2f_t, 3> text_coords;  // texture coordinates
     vec3f_t normal;
     float avg_depth;
     uint32_t color;
 };
 
 struct Mesh {
-    std::vector<vertex> vertices;  // vector the mesh vertices
+    std::vector<vec3f_t> vertices;  // vector the mesh vertices
     std::vector<Face> faces;  // each face stores the indices of the vertices that make up the face
     vec3f_t rotation{0, 0, 0};     //roation with x, y, z
     vec3f_t scale{1.0, 1.0, 1.0};        // scale with x, y, z

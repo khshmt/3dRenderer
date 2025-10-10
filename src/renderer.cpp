@@ -51,7 +51,7 @@ bool Renderer::initializeWindow(bool fullscreen) {
     return _isRunning = true;
 }
 
-bool Renderer:: setupWindow(const std::string& obj_file_path) {
+bool Renderer::setupWindow(const std::string& obj_file_path) {
     _colorBuffer.resize(_width * _height);
 
     if(_colorBufferTexturePtr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
@@ -62,7 +62,7 @@ bool Renderer:: setupWindow(const std::string& obj_file_path) {
         return false;
     }
 
-    constructProjectionMatrix(60, static_cast<float>(_height)/_width, 0.01, 100.0);
+    constructProjectionMatrix(60, static_cast<float>(_height)/_width, 0.1, 100.0);
 
     loadObjFileData(obj_file_path);
     return true;
@@ -117,6 +117,15 @@ void Renderer::drawTriangle(Triangle& tri, uint32_t color) {
     drawLine(tri.points[0].x(), tri.points[0].y(), tri.points[1].x(), tri.points[1].y(), color);
     drawLine(tri.points[1].x(), tri.points[1].y(), tri.points[2].x(), tri.points[2].y(), color);
     drawLine(tri.points[2].x(), tri.points[2].y(), tri.points[0].x(), tri.points[0].y(), color);
+}
+
+// drawing textured triangle will depend also on the rasterization algorithm, flat top and flat bottom
+void Renderer::drawTextureTriangle(const vec2f_t& p0, const vec2f_t& t0, const vec2f_t& p1,
+                                   const vec2f_t& t1, const vec2f_t& p2, const vec2f_t& t2,
+                                   uint32_t* texture) {
+    // TODO:
+    // loop all the pixels of the triangle to render the texture
+    
 }
 
 //   flat bottom triangle
@@ -266,24 +275,24 @@ void Renderer::processInput() {
                         _enableFaceCulling = false;
                         break;
                     case SDLK_1:
-                        _wireframeModel = true;
-                        _VerticesModel = true;
-                        _raterizeModel = false;
+                        _currentRenderMode = RenderMode::WIREFRAME;
                         break;
                     case SDLK_2:
-                        _wireframeModel = true;
-                        _VerticesModel = false;
-                        _raterizeModel = false;
+                        _currentRenderMode = RenderMode::WIREFRAME_VERTICES;
                         break;
                     case SDLK_3:
-                        _wireframeModel = false;
-                        _VerticesModel = false;
-                        _raterizeModel = true;
+                        _currentRenderMode = RenderMode::RASTERIZE;
                         break;
                     case SDLK_4:
-                        _wireframeModel = true;
-                        _VerticesModel = false;
-                        _raterizeModel = true;
+                        _currentRenderMode = RenderMode::RASTERIZE_WIREFRAME;
+                        break;
+                    case SDLK_5:
+                        _currentRenderMode = RenderMode::TEXTURE;
+                        break;
+                    case SDLK_6:
+                        _currentRenderMode = RenderMode::TEXTURE_WIREFRAME;
+                        break;
+                    default:
                         break;
                 }
                 break;
@@ -419,6 +428,10 @@ void Renderer::update() {
                 projected_point.y() += _height / 2.0;
                 projected_triangle.points[i++] = projected_point;
 
+                projected_triangle.text_coords[0] = face.a_uv;
+                projected_triangle.text_coords[1] = face.b_uv;
+                projected_triangle.text_coords[2] = face.c_uv;
+                
                 projected_triangle.avg_depth = (face_vertices[0].z() + face_vertices[1].z() + face_vertices[2].z()) / 3.0f;
                 projected_triangle.normal = face.normal;
                 projected_triangle.color = face.color;
@@ -442,24 +455,40 @@ void Renderer::render(double timer_value) {
     clearColorBuffer(0xFF000000);
     drawGrid();
 
+    bool wireframe = _currentRenderMode == RenderMode::WIREFRAME ||
+                     _currentRenderMode == RenderMode::RASTERIZE_WIREFRAME ||
+                     _currentRenderMode == RenderMode::TEXTURE_WIREFRAME ||
+                     _currentRenderMode == RenderMode::WIREFRAME_VERTICES; 
+
+    bool raster = _currentRenderMode == RenderMode::RASTERIZE ||
+                  _currentRenderMode == RenderMode::RASTERIZE_WIREFRAME;
+
+    bool textured = _currentRenderMode == RenderMode::TEXTURE ||
+                    _currentRenderMode == RenderMode::TEXTURE_WIREFRAME;
+
+    bool showVertices = _currentRenderMode == RenderMode::WIREFRAME_VERTICES;
+
     for (auto& triangle : _lastTrianglesToRender) {
-        if (_VerticesModel) {
+        uint32_t wireframe_color{0xFF00FF00};  // default wirferame color is green
+        if (raster) {
+            auto light_intensity_factor = -(triangle.normal * _lightDirection);
+            auto color = calculateLightIntensityColor(triangle.color, light_intensity_factor);
+            rasterizeTriangle(triangle, color);
+            wireframe_color = 0xFF000000;  // black
+        }
+        if (textured) {
+            drawTextureTriangle(triangle.points[0], triangle.text_coords[0], 
+                                triangle.points[1],triangle.text_coords[1], 
+                                triangle.points[2],triangle.text_coords[2], nullptr);
+            wireframe_color = 0xFFFF0000;  // red
+        }
+        if (showVertices) {
             drawRect(triangle.points[0].x(), triangle.points[0].y(), 3, 3, 0xFFFF0000);
             drawRect(triangle.points[1].x(), triangle.points[1].y(), 3, 3, 0xFFFF0000);
             drawRect(triangle.points[2].x(), triangle.points[2].y(), 3, 3, 0xFFFF0000);
         }
-        if (_raterizeModel) {
-            auto light_intensity_factor = -(triangle.normal * _lightDirection);
-            auto color = calculateLightIntensityColor(triangle.color, light_intensity_factor);
-            rasterizeTriangle(triangle, color);
-        }
-        if (_wireframeModel) {
-            uint32_t color;
-            if (_raterizeModel)
-                color = 0xFF000000;
-            else
-                color = 0xFF00FF00;
-            drawTriangle(triangle, color);
+        if (wireframe) {
+            drawTriangle(triangle, wireframe_color); 
         }
     }
     renderColorBuffer();
@@ -481,13 +510,16 @@ void Renderer::render(double timer_value) {
     drawText(" #2 ", dims2, {40, 100});
     drawText(" #3 ", dims2, {40, 130});
     drawText(" #4 ", dims2, {40, 160});
-    drawText("C_Key: Culling.", {150, 30}, {40, 220});
-    drawText("D_Key: Disable Culling.", {200, 30}, {40, 250});
-    drawText("Space_Key: Pause.", {200, 30}, {40, 280});
-    drawText("Mouse Wheel Zoom in/out.", {200, 30}, {40, 310});
+    drawText(" #5 ", dims2, {40, 190});
+    drawText(" #6 ", dims2, {40, 220});
+    drawText("C_Key: Culling.", {150, 30}, {40, 260});
+    drawText("D_Key: Disable Culling.", {200, 30}, {40, 290});
+    drawText("Space_Key: Pause.", {200, 30}, {40, 320});
+    drawText("Mouse Wheel Zoom in/out.", {200, 30}, {40, 350});
 
     SDL_RenderPresent(_rendererPtr.get());
     _trianglesToRender.clear();
+    //_currentRenderMode.reset();  // reset current mode to last mode
     _timer.endWatch();
 }
 
