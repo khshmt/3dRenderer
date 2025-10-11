@@ -62,7 +62,7 @@ bool Renderer::setupWindow(const std::string& obj_file_path) {
         return false;
     }
 
-    constructProjectionMatrix(60, static_cast<float>(_height)/_width, 0.1, 100.0);
+    constructProjectionMatrix(60.0, static_cast<float>(_height)/_width, 0.1, 100.0);
 
     loadObjFileData(obj_file_path);
     return true;
@@ -119,15 +119,6 @@ void Renderer::drawTriangle(Triangle& tri, uint32_t color) {
     drawLine(tri.points[2].x(), tri.points[2].y(), tri.points[0].x(), tri.points[0].y(), color);
 }
 
-// drawing textured triangle will depend also on the rasterization algorithm, flat top and flat bottom
-void Renderer::drawTextureTriangle(const vec2f_t& p0, const vec2f_t& t0, const vec2f_t& p1,
-                                   const vec2f_t& t1, const vec2f_t& p2, const vec2f_t& t2,
-                                   uint32_t* texture) {
-    // TODO:
-    // loop all the pixels of the triangle to render the texture
-    
-}
-
 //   flat bottom triangle
 //  --------------> +x
 //  |       (x0,y0)
@@ -137,13 +128,18 @@ void Renderer::drawTextureTriangle(const vec2f_t& p0, const vec2f_t& t0, const v
 //  |       /       \
 //  |      /         \
 //  v +y (x1,y1)------(x2,y2)
-void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, int x1, int y1, int x2,
-                                           int y2, uint32_t color) {
+void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, float tx0, float ty0, int x1, int y1,
+                                           float tx1, float ty1, int x2, int y2, float tx2,
+                                           float ty2, uint32_t color, uint32_t* texture) {
     // Find the two inverse slopes (two triangle legs)
     // inverse slope = run / rise, which tells us how much x changes for each unit change in y
     // since we are looping over y (scanline by scanline), while slope = rise / run
-    float inv_slope_1 = static_cast<float>(x1 - x0) / (y1 - y0);
-    float inv_slope_2 = static_cast<float>(x2 - x0) / (y2 - y0);
+    float inv_slope_1{};
+    float inv_slope_2{};
+    if (y1 - y0 != 0 && y2 - y0 != 0) {
+        inv_slope_1 = static_cast<float>(x1 - x0) / (y1 - y0);
+        inv_slope_2 = static_cast<float>(x2 - x0) / (y2 - y0);
+    }
                      
     // Start x_start and x_end from the top vertex (x0,y0)
     float x_start = x0;
@@ -151,7 +147,15 @@ void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, int x1, int y1, int x
 
     // Loop all the scanlines from top to bottom
     for (int y = y0; y <= y2; y++) {
-        drawLine(x_start, y, x_end, y, color);
+        if (texture == nullptr) {
+            drawLine(x_start, y, x_end, y, color);
+        }
+        else {
+            for (int x = x_start; x < x_end; x++) {
+                // Draw our pixel with a custom color
+                drawPixel(x, y, (x % 2 == 0 && y % 2 == 0) ? 0xFFFF00FF : 0x00000000);
+            }
+        }
         x_start += inv_slope_1;
         x_end += inv_slope_2;
     }
@@ -167,11 +171,16 @@ void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, int x1, int y1, int x
 // |         \ /
 // |       (x2,y2)
 // v +y
-void Renderer::rasterizeFlatTopTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
-                                        uint32_t color) {
+void Renderer::rasterizeFlatTopTriangle(int x0, int y0, float tx0, float ty0, int x1, int y1,
+                                        float tx1, float ty1, int x2, int y2, float tx2, float ty2,
+                                        uint32_t color, uint32_t* texture) {
     // Find the two slopes (two triangle legs)
-    float inv_slope_1 = static_cast<float>(x2 - x0) / (y2 - y0);
-    float inv_slope_2 = static_cast<float>(x2 - x1) / (y2 - y1);
+    float inv_slope_1{}; 
+    float inv_slope_2{}; 
+    if (y2 - y0 != 0 && y2 - y1 != 0) {
+        inv_slope_1 = static_cast<float>(x2 - x0) / (y2 - y0);
+        inv_slope_2 = static_cast<float>(x2 - x1) / (y2 - y1);
+    }
 
     // Start x_start and x_end from the bottom vertex (x2,y2)
     float x_start = x2;
@@ -179,7 +188,14 @@ void Renderer::rasterizeFlatTopTriangle(int x0, int y0, int x1, int y1, int x2, 
 
     // Loop all the scanlines from bottom to top
     for (int y = y2; y >= y0; y--) {
-        drawLine(x_start, y, x_end, y, color);
+        if (texture == nullptr) {
+            drawLine(x_start, y, x_end, y, color);
+        } else {
+            for (int x = x_start; x < x_end; x++) {
+                // Draw our pixel with a custom color
+                drawPixel(x, y, (x % 2 == 0 && y % 2 == 0) ? 0xFFFF00FF : 0x00000000);
+            }
+        }
         x_start -= inv_slope_1;
         x_end -= inv_slope_2;
     }
@@ -203,24 +219,25 @@ void Renderer::rasterizeFlatTopTriangle(int x0, int y0, int x1, int y1, int x2, 
 //                           \
 //                         (x2,y2)
 //
-void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color) {
-    std::array<std::pair<int, int>, 3> verts = {{{tri.points[0].x(), tri.points[0].y()},
-                                                 {tri.points[1].x(), tri.points[1].y()},
-                                                 {tri.points[2].x(), tri.points[2].y()}}};
+void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color, uint32_t* texture) {
+    std::array<std::tuple<int, int, float, float>, 3> verts = {
+        {{tri.points[0].x(), tri.points[0].y(), tri.text_coords[0].x(), tri.text_coords[0].y()},
+         {tri.points[1].x(), tri.points[1].y(), tri.text_coords[1].x(), tri.text_coords[1].y()},
+         {tri.points[2].x(), tri.points[2].y(), tri.text_coords[2].x(), tri.text_coords[2].y()}}};
 
     // Sort by y, where y0 < y1 < y2
-    std::sort(verts.begin(), verts.end(), [](auto& a, auto& b) { return a.second < b.second; });
+    std::sort(verts.begin(), verts.end(), [](auto& a, auto& b) { return std::get<1>(a) < std::get<1>(b); });
 
-    auto [x0, y0] = verts[0];
-    auto [x1, y1] = verts[1];
-    auto [x2, y2] = verts[2];
+    auto [x0, y0, tx0, ty0] = verts[0];
+    auto [x1, y1, tx1, ty1] = verts[1];
+    auto [x2, y2, tx2, ty2] = verts[2];
 
     if (y1 == y2) {
         // Draw flat-bottom triangle
-        rasterizeFlatBottomTriangle(x0, y0, x1, y1, x2, y2, color);
+        rasterizeFlatBottomTriangle(x0, y0, tx0, ty0, x1, y1, tx1, ty1, x2, y2, tx2, ty2, color, texture);
     } else if (y0 == y1) {
         // Draw flat-top triangle
-        rasterizeFlatTopTriangle(x0, y0, x1, y1, x2, y2, color);
+        rasterizeFlatTopTriangle(x0, y0, tx0, ty0, x1, y1, tx1, ty1, x2, y2, tx2, ty2, color, texture);
     } else {
         // Calculate the new vertex (Mx,My) using triangle similarity
         // Mx - x0      y1 - y0
@@ -229,10 +246,12 @@ void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color) {
         int My = y1;
         int Mx = (((x2 - x0) * (y1 - y0)) / (y2 - y0)) + x0; 
         // Draw flat-bottom triangle
-        rasterizeFlatBottomTriangle(x0, y0, x1, y1, Mx, My, color);
+        rasterizeFlatBottomTriangle(x0, y0, tx0, ty0, x1, y1, tx1, ty1, Mx, My, tx2, ty2, color,
+                                    texture);
 
         // Draw flat-top triangle
-        rasterizeFlatTopTriangle(x1, y1, Mx, My, x2, y2, color);
+        rasterizeFlatTopTriangle(x1, y1, tx0, ty0, Mx, My, tx1, ty1, x2, y2, tx2, ty2, color,
+                                 texture);
     }
 }
 
@@ -349,10 +368,10 @@ vec2f_t Renderer::project(vec3f_t& point) {
 }
 
 uint32_t Renderer::calculateLightIntensityColor(uint32_t original_color, float percentage_factor) {
-    if (percentage_factor < 0)
-        percentage_factor = 0;
-    if (percentage_factor > 1)
-        percentage_factor = 1;
+    if (percentage_factor < 0.0f)
+        percentage_factor = 0.0f;
+    if (percentage_factor > 1.0f)
+        percentage_factor = 1.0f;
     uint32_t a = original_color & 0xFF000000;
     uint32_t r = (original_color & 0x00FF0000) * percentage_factor;
     uint32_t g = (original_color & 0x0000FF00) * percentage_factor;
@@ -383,8 +402,8 @@ void Renderer::update() {
         _mesh.translation.z() = -_cameraPosition.z();
         // Roation
         _mesh.rotation.x() += 0.01;
-        _mesh.rotation.y() += 0.01;
-        _mesh.rotation.z() += 0.01;
+        //_mesh.rotation.y() += 0.01;
+        //_mesh.rotation.z() += 0.01;
 
         _worldMatrix.setEye();
         _worldMatrix.setScale(_mesh.scale.x(), _mesh.scale.y(), _mesh.scale.z());
@@ -470,17 +489,18 @@ void Renderer::render(double timer_value) {
 
     for (auto& triangle : _lastTrianglesToRender) {
         uint32_t wireframe_color{0xFF00FF00};  // default wirferame color is green
-        if (raster) {
+        if (raster || textured) {
             auto light_intensity_factor = -(triangle.normal * _lightDirection);
             auto color = calculateLightIntensityColor(triangle.color, light_intensity_factor);
-            rasterizeTriangle(triangle, color);
-            wireframe_color = 0xFF000000;  // black
-        }
-        if (textured) {
-            drawTextureTriangle(triangle.points[0], triangle.text_coords[0], 
-                                triangle.points[1],triangle.text_coords[1], 
-                                triangle.points[2],triangle.text_coords[2], nullptr);
-            wireframe_color = 0xFFFF0000;  // red
+            if (textured) {
+                _meshTexture = std::make_unique<uint32_t>(100);  // dummy texture
+                rasterizeTriangle(triangle, color, _meshTexture.get());
+                wireframe_color = 0xFFFF0000;  // red
+            }
+            else {
+                rasterizeTriangle(triangle, color, nullptr);
+                wireframe_color = 0xFF000000;  // black
+            }
         }
         if (showVertices) {
             drawRect(triangle.points[0].x(), triangle.points[0].y(), 3, 3, 0xFFFF0000);
@@ -501,25 +521,24 @@ void Renderer::render(double timer_value) {
         t1 = t2;
     }
     const vec2i_t dims1{100, 30};
-    drawText(std::string("fps: "s + timer_value_), dims1,
-             {(_width - dims1.x()) / 2, 40});
+    drawText(std::string("fps: "s + timer_value_), dims1, {(_width - dims1.x()) / 2, 40},
+             stoi(timer_value_) < 30 ? false : true);
 
     const vec2i_t dims2{40, 30};
-    drawText("Profiles: ", {100, 30}, { 40, 40 });
-    drawText(" #1 ", dims2, {40, 70});
-    drawText(" #2 ", dims2, {40, 100});
-    drawText(" #3 ", dims2, {40, 130});
-    drawText(" #4 ", dims2, {40, 160});
-    drawText(" #5 ", dims2, {40, 190});
-    drawText(" #6 ", dims2, {40, 220});
-    drawText("C_Key: Culling.", {150, 30}, {40, 260});
-    drawText("D_Key: Disable Culling.", {200, 30}, {40, 290});
-    drawText("Space_Key: Pause.", {200, 30}, {40, 320});
-    drawText("Mouse Wheel Zoom in/out.", {200, 30}, {40, 350});
+    drawText("Profiles: ", {100, 30}, {40, 40}, false);
+    drawText(" #1 ", dims2, {40, 70}, _currentRenderMode == RenderMode::WIREFRAME);
+    drawText(" #2 ", dims2, {40, 100}, _currentRenderMode == RenderMode::WIREFRAME_VERTICES);
+    drawText(" #3 ", dims2, {40, 130}, _currentRenderMode == RenderMode::RASTERIZE);
+    drawText(" #4 ", dims2, {40, 160}, _currentRenderMode == RenderMode::RASTERIZE_WIREFRAME);
+    drawText(" #5 ", dims2, {40, 190}, _currentRenderMode == RenderMode::TEXTURE);
+    drawText(" #6 ", dims2, {40, 220}, _currentRenderMode == RenderMode::TEXTURE_WIREFRAME);
+    drawText("C_Key: Culling.", {150, 30}, {40, 260},  _enableFaceCulling);
+    drawText("D_Key: Disable Culling.", {200, 30}, {40, 290}, !_enableFaceCulling);
+    drawText("Space_Key: Pause.", {200, 30}, {40, 320}, _pause);
+    drawText("Mouse Wheel Zoom in/out.", {200, 30}, {40, 350}, false);
 
     SDL_RenderPresent(_rendererPtr.get());
     _trianglesToRender.clear();
-    //_currentRenderMode.reset();  // reset current mode to last mode
     _timer.endWatch();
 }
 
@@ -584,7 +603,7 @@ std::pair<bool, vec3f_t> Renderer::CullingCheck(std::array<vec3f_t, 3>& face_ver
     auto vec_camera_ray = _cameraPosition - vec_a;
 
     //step4 check how aligned the camera ray with face normal, if angle is less than 90 degree then we are looking at the back face
-    if (vec_face_normal * vec_camera_ray < 0.0f)  // zero means cos(90), less than zero means more than cos(90) degree angle
+    if (vec_face_normal * vec_camera_ray < 0)  // zero means cos(90), less than zero means more than cos(90) degree angle
         return {true, vec_face_normal};  // back face
 
     return {false, vec_face_normal};  // front face
@@ -632,8 +651,14 @@ void Renderer::destroyWindow() {
     // SDL_Quit();
 }
 
-void Renderer::drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos) {
-    SDL_Surface* surface = TTF_RenderText_Blended(_ttfTextRenerer, text.data(), {255,255,255});
+void Renderer::drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos,
+                        bool enabledMode) {
+    SDL_Color color{};
+    if (enabledMode)
+        color = {0, 255, 0};
+    else 
+        color = {255, 255, 255};
+    SDL_Surface* surface = TTF_RenderText_Blended(_ttfTextRenerer, text.data(), color);
     if (surface == nullptr) {
         std::cout << "Unable to render text surface! SDL_ttf Error: " << TTF_GetError() << '\n';
         return;
