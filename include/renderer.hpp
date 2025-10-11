@@ -59,7 +59,7 @@ public:
     bool getWindowState();
     void update();
     void render(double timer_value);
-    void drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos);
+    void drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos, bool enabledMode);
 
 private:
     void drawGrid();
@@ -67,13 +67,13 @@ private:
     void drawRect(int x, int y, int width, int height, uint32_t color);
     void drawLine(int x0, int y0, int x1, int y1, uint32_t color);
     void drawTriangle(Triangle& tri, uint32_t color);
-    void drawTextureTriangle(const vec2f_t& p0, const vec2f_t& t0, const vec2f_t& p1,
-                             const vec2f_t& t1, const vec2f_t& p2, const vec2f_t& t2, uint32_t* texture);
-    void rasterizeTriangle(Triangle& tri, uint32_t color);
-    void rasterizeFlatBottomTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
-                                     uint32_t color = 0xFFFF0000);
-    void rasterizeFlatTopTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
-                                  uint32_t color = 0xFFFF0000);
+    void rasterizeTriangle(Triangle& tri, uint32_t color, uint32_t* texture);
+    void rasterizeFlatBottomTriangle(int x0, int y0, float tx0, float ty0, int x1, int y1,
+                                     float tx1, float ty1, int x2, int y2, float tx2, float ty2,
+                                     uint32_t color, uint32_t* texture);
+    void rasterizeFlatTopTriangle(int x0, int y0, float tx0, float ty0, int x1, int y1, float tx1,
+                                  float ty1, int x2, int y2, float tx2, float ty2, uint32_t color,
+                                  uint32_t* texture);
     void renderColorBuffer();
     void clearColorBuffer(uint32_t color);
     void loadObjFileData(const std::string& obj_file_path);
@@ -87,7 +87,7 @@ private:
 private:
     std::atomic_bool _isRunning = false;
     std::atomic_bool _pause{false};
-    std::atomic_bool _enableFaceCulling{false};
+    std::atomic_bool _enableFaceCulling{true};
 
     bool _firstFrame{true};
 
@@ -119,5 +119,7 @@ private:
     vec3f_t _cameraPosition = {0, 0, -5};
     vec3f_t _lightDirection = {0, 0, 1};
     RenderMode _currentRenderMode = RenderMode::WIREFRAME;
+    SDL_Color _renderModeTextColor = {255, 255, 255, 255};
+    std::unique_ptr<uint32_t> _meshTexture = nullptr;
     Timer _timer;
 };
