@@ -94,7 +94,7 @@ void Renderer::drawRect(int x, int y, int width, int height, uint32_t color) {
 
 // DDA(digital differential analyzer) line drawing algorithm
 // there is also another faster algorithm called Bresenham's line algorithm
-void Renderer::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
+void Renderer::drawLine(int x0, int y0, int x1, int y1, uint32_t color, bool dashed_line) {
     int delta_x = (x1 - x0);
     int delta_y = (y1 - y0);
 
@@ -107,7 +107,14 @@ void Renderer::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
     float current_y = y0;
 
     for (int i = 0; i <= longest_side_length; i++) {
-        drawPixel(static_cast<int>(current_x), static_cast<int>(current_y), color);
+        if (dashed_line)
+            drawPixel(static_cast<int>(current_x), static_cast<int>(current_y),
+                      (static_cast<int>(current_x) % 2 == 0 && static_cast<int>(current_y) % 2 == 0)
+                          ? color
+                          : 0x00000000);
+        else 
+            drawPixel(static_cast<int>(current_x), static_cast<int>(current_y), color);
+        
         current_x += x_inc;
         current_y += y_inc;
     }
@@ -151,10 +158,7 @@ void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, float tx0, float ty0,
             drawLine(x_start, y, x_end, y, color);
         }
         else {
-            for (int x = x_start; x < x_end; x++) {
-                // Draw our pixel with a custom color
-                drawPixel(x, y, (x % 2 == 0 && y % 2 == 0) ? 0xFFFF00FF : 0x00000000);
-            }
+            drawLine(x_start, y, x_end, y, 0xFFFF00FF, true);
         }
         x_start += inv_slope_1;
         x_end += inv_slope_2;
@@ -191,10 +195,7 @@ void Renderer::rasterizeFlatTopTriangle(int x0, int y0, float tx0, float ty0, in
         if (texture == nullptr) {
             drawLine(x_start, y, x_end, y, color);
         } else {
-            for (int x = x_start; x < x_end; x++) {
-                // Draw our pixel with a custom color
-                drawPixel(x, y, (x % 2 == 0 && y % 2 == 0) ? 0xFFFF00FF : 0x00000000);
-            }
+            drawLine(x_start, y, x_end, y, 0xFFFF00FF, true);
         }
         x_start -= inv_slope_1;
         x_end -= inv_slope_2;
@@ -241,14 +242,13 @@ void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color, uint32_t* textur
     } else {
         // Calculate the new vertex (Mx,My) using triangle similarity
         // Mx - x0      y1 - y0
-        // --------- =  ---------  Wen need Mx
+        // --------- =  ---------  We need Mx
         //  x2 - x0     y2 - y0
         int My = y1;
         int Mx = (((x2 - x0) * (y1 - y0)) / (y2 - y0)) + x0; 
         // Draw flat-bottom triangle
         rasterizeFlatBottomTriangle(x0, y0, tx0, ty0, x1, y1, tx1, ty1, Mx, My, tx2, ty2, color,
                                     texture);
-
         // Draw flat-top triangle
         rasterizeFlatTopTriangle(x1, y1, tx0, ty0, Mx, My, tx1, ty1, x2, y2, tx2, ty2, color,
                                  texture);

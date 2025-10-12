@@ -65,7 +65,7 @@ private:
     void drawGrid();
     void drawPixel(int x, int y, uint32_t color);
     void drawRect(int x, int y, int width, int height, uint32_t color);
-    void drawLine(int x0, int y0, int x1, int y1, uint32_t color);
+    void drawLine(int x0, int y0, int x1, int y1, uint32_t color, bool dashed_line = false);
     void drawTriangle(Triangle& tri, uint32_t color);
     void rasterizeTriangle(Triangle& tri, uint32_t color, uint32_t* texture);
     void rasterizeFlatBottomTriangle(int x0, int y0, float tx0, float ty0, int x1, int y1,
