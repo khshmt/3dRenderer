@@ -158,7 +158,7 @@ void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, float tx0, float ty0,
             drawLine(x_start, y, x_end, y, color);
         }
         else {
-            drawLine(x_start, y, x_end, y, 0xFFFF00FF, true);
+            drawLine(x_start, y, x_end, y, color, true);
         }
         x_start += inv_slope_1;
         x_end += inv_slope_2;
@@ -195,7 +195,7 @@ void Renderer::rasterizeFlatTopTriangle(int x0, int y0, float tx0, float ty0, in
         if (texture == nullptr) {
             drawLine(x_start, y, x_end, y, color);
         } else {
-            drawLine(x_start, y, x_end, y, 0xFFFF00FF, true);
+            drawLine(x_start, y, x_end, y, color, true);
         }
         x_start -= inv_slope_1;
         x_end -= inv_slope_2;
@@ -489,18 +489,17 @@ void Renderer::render(double timer_value) {
 
     for (auto& triangle : _lastTrianglesToRender) {
         uint32_t wireframe_color{0xFF00FF00};  // default wirferame color is green
-        if (raster || textured) {
+        if (raster) {
             auto light_intensity_factor = -(triangle.normal * _lightDirection);
             auto color = calculateLightIntensityColor(triangle.color, light_intensity_factor);
-            if (textured) {
-                _meshTexture = std::make_unique<uint32_t>(100);  // dummy texture
-                rasterizeTriangle(triangle, color, _meshTexture.get());
-                wireframe_color = 0xFFFF0000;  // red
-            }
-            else {
-                rasterizeTriangle(triangle, color, nullptr);
-                wireframe_color = 0xFF000000;  // black
-            }
+            rasterizeTriangle(triangle, color, nullptr);
+            wireframe_color = 0xFF000000;  // black
+        }
+        if (textured) {
+            auto color = 0XFFFF00FF;
+            _meshTexture = std::make_unique<uint32_t>(100);  // dummy texture
+            rasterizeTriangle(triangle, color, _meshTexture.get());
+            wireframe_color = 0xFFFF0000;  // red
         }
         if (showVertices) {
             drawRect(triangle.points[0].x(), triangle.points[0].y(), 3, 3, 0xFFFF0000);
@@ -508,7 +507,7 @@ void Renderer::render(double timer_value) {
             drawRect(triangle.points[2].x(), triangle.points[2].y(), 3, 3, 0xFFFF0000);
         }
         if (wireframe) {
-            drawTriangle(triangle, wireframe_color); 
+            drawTriangle(triangle, wireframe_color);
         }
     }
     renderColorBuffer();
