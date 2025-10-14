@@ -539,19 +539,42 @@ uint32_t Renderer::calculateLightIntensityColor(uint32_t original_color, float p
     return (a | (r & 0x00FF0000) | (g & 0x0000FF00) | (b & 0x000000FF)); // new color
 }
 
- void Renderer::loadPNGTextureData(const std::string& fileName) {
-    _pngTexture = std::unique_ptr<upng_t, decltype(&upng_free)>(
-        upng_new_from_file(fileName.c_str()), upng_free);
-    if (_pngTexture != nullptr) {
-        upng_decode(_pngTexture.get());
-        if (upng_get_error(_pngTexture.get()) == UPNG_EOK) {
-            auto buffer = (uint32_t*)upng_get_buffer(_pngTexture.get());
-            _textureWidth = upng_get_width(_pngTexture.get());
-            _textureHeight = upng_get_height(_pngTexture.get());
-            _meshTextureBuffer =
-                std::vector<uint32_t>(buffer, buffer + (_textureWidth * _textureHeight));
+void Renderer::loadPNGTextureData(const std::string& fileName) {
+    // Initialize SDL_image with PNG support if not already done
+    static bool sdl_image_initialized = false;
+    if (!sdl_image_initialized) {
+        int flags = IMG_INIT_PNG;
+        if ((IMG_Init(flags) & flags) != flags) {
+            std::cerr << "Failed to initialize SDL_image: " << IMG_GetError() << std::endl;
+            return;
         }
+        sdl_image_initialized = true;
     }
+
+    // Load the PNG as an SDL surface
+    SDL_Surface* surface = IMG_Load(fileName.c_str());
+    if (!surface) {
+        std::cerr << "Failed to load PNG file: " << IMG_GetError() << std::endl;
+        return;
+    }
+
+    // Ensure we have a consistent ABGR8888 pixel format
+    SDL_Surface* converted = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_ABGR8888, 0);
+    SDL_FreeSurface(surface);
+    if (!converted) {
+        std::cerr << "Failed to convert surface to RGBA32: " << SDL_GetError() << std::endl;
+        return;
+    }
+
+    // Extract pixel data
+    _textureWidth = converted->w;
+    _textureHeight = converted->h;
+    _meshTextureBuffer.resize(_textureWidth * _textureHeight);
+
+    std::memcpy(_meshTextureBuffer.data(), converted->pixels,
+                _textureWidth * _textureHeight * sizeof(uint32_t));
+
+    SDL_FreeSurface(converted);
 }
 
 void Renderer::update() {

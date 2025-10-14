@@ -10,11 +10,10 @@
 #include "timer.hpp"
 #include "vector.hpp"
 #include "matrix.hpp"
-// internal thirdparty
-#include "upng.h"
 // 3rd-Party_Libs
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_image.h>
 
 
 #ifdef _WIN32
@@ -127,6 +126,5 @@ private:
     int _textureWidth;
     int _textureHeight;
     std::vector<uint32_t> _meshTextureBuffer;
-    std::unique_ptr<upng_t, decltype(&upng_free)> _pngTexture{nullptr, upng_free};
     Timer _timer;
 };
