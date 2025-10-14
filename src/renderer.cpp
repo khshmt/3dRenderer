@@ -54,24 +54,91 @@ bool Renderer::initializeWindow(bool fullscreen) {
 bool Renderer::setupWindow(const std::string& obj_file_path) {
     _colorBuffer.resize(_width * _height);
 
-    if(_colorBufferTexturePtr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
-        SDL_CreateTexture(_rendererPtr.get(), SDL_PIXELFORMAT_ARGB8888, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING,
-                          _width, _height),
-        SDL_DestroyTexture); !_colorBufferTexturePtr) {
+    if (_colorBufferTexturePtr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
+            SDL_CreateTexture(_rendererPtr.get(), SDL_PIXELFORMAT_ABGR8888,
+                              SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, _width, _height),
+            SDL_DestroyTexture);
+        !_colorBufferTexturePtr) {
         std::cout << "falied to create Texture\n";
         return false;
     }
 
-    constructProjectionMatrix(60.0, static_cast<float>(_height)/_width, 0.1, 100.0);
+    constructProjectionMatrix(60.0, static_cast<float>(_height) / _width, 0.1, 100.0);
 
-    loadObjFileData(obj_file_path);
-    return true;
+    auto objloaded = loadObjFileData(obj_file_path);
+    auto png_file_path = std::filesystem::path(obj_file_path).replace_extension(".png");
+    if (std::filesystem::exists(png_file_path)) {
+        loadPNGTextureData(png_file_path.string());
+    }
+    return objloaded;
 }
 
 void Renderer::drawPixel(int x, int y, uint32_t color) {
     if (x >= 0 && x < _width && y >= 0 && y < _height) {
         _colorBuffer[(_width * y) + x] = color;
     }
+}
+
+void Renderer::drawTexel(vec2i_t point, const std::vector<uint32_t> texture, Matrix<float, 4, 1> a,
+                         Matrix<float, 4, 1> b, Matrix<float, 4, 1> c, vec2f_t uv0, vec2f_t uv1,
+                         vec2f_t uv2) {
+    vec2f_t point_p = {(float)point.x(), (float)point.y()};
+    vec3f_t weights = barycentric_weights(vec2f_t{a.x(), a.y()}, vec2f_t{b.x(), b.y()},
+                                          vec2f_t{c.x(), c.y()}, point_p);
+
+    float alpha = weights.x();
+    float beta = weights.y();
+    float gamma = weights.z();
+
+    // Variables to store the interpolated values of U, V, and also 1/w for the current pixel
+    float interpolated_u;
+    float interpolated_v;
+    float interpolated_reciprocal_w;
+
+    // Perform the interpolation of all U/w and V/w values using barycentric weights and a factor of 1/w
+    // removed the distortion
+    interpolated_u =
+        (uv0.x() / a.w()) * alpha + (uv1.x() / b.w()) * beta + (uv2.x() / c.w()) * gamma;
+    interpolated_v =
+        (uv0.y() / a.w()) * alpha + (uv1.y() / b.w()) * beta + (uv2.y() / c.w()) * gamma;
+
+    // Also interpolate the value of 1/w for the current pixel
+    interpolated_reciprocal_w =
+        (1 / a.w()) * alpha + (1 / b.w()) * beta + (1 / c.w()) * gamma;
+
+    // Now we can divide back both interpolated values by 1/w
+    interpolated_u /= interpolated_reciprocal_w;
+    interpolated_v /= interpolated_reciprocal_w;
+
+    // Map the UV coordinate to the full texture width and height
+    int tex_x = abs((int)(interpolated_u * _textureWidth)) % _textureWidth;
+    int tex_y = abs((int)(interpolated_v * _textureHeight)) % _textureHeight;
+
+    drawPixel(point.x(), point.y(), texture[(_textureWidth * tex_y) + tex_x]);
+}
+
+vec3f_t Renderer::barycentric_weights(vec2f_t a, vec2f_t b, vec2f_t c, vec2f_t p) {
+    // Find the vectors between the vertices ABC and point p
+    auto ac = c - a;
+    auto ab = b - a;
+    auto ap = p - a;
+    auto pc = c - p;
+    auto pb = b - p;
+
+    // Compute the area of the full parallegram/triangle ABC using 2D cross product
+    float area_parallelogram_abc = (ac.x() * ab.y() - ac.y() * ab.x());  // || AC x AB ||
+
+    // Alpha is the area of the small parallelogram/triangle PBC divided by the area of the full parallelogram/triangle ABC
+    float alpha = (pc.x() * pb.y() - pc.y() * pb.x()) / area_parallelogram_abc;
+
+    // Beta is the area of the small parallelogram/triangle APC divided by the area of the full parallelogram/triangle ABC
+    float beta = (ac.x() * ap.y() - ac.y() * ap.x()) / area_parallelogram_abc;
+
+    // Weight gamma is easily found since barycentric coordinates always add up to 1.0
+    float gamma = 1 - alpha - beta;
+
+    vec3f_t weights = {alpha, beta, gamma};
+    return weights;
 }
 
 void Renderer::drawGrid() {
@@ -94,7 +161,7 @@ void Renderer::drawRect(int x, int y, int width, int height, uint32_t color) {
 
 // DDA(digital differential analyzer) line drawing algorithm
 // there is also another faster algorithm called Bresenham's line algorithm
-void Renderer::drawLine(int x0, int y0, int x1, int y1, uint32_t color, bool dashed_line) {
+void Renderer::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
     int delta_x = (x1 - x0);
     int delta_y = (y1 - y0);
 
@@ -107,14 +174,7 @@ void Renderer::drawLine(int x0, int y0, int x1, int y1, uint32_t color, bool das
     float current_y = y0;
 
     for (int i = 0; i <= longest_side_length; i++) {
-        if (dashed_line)
-            drawPixel(static_cast<int>(current_x), static_cast<int>(current_y),
-                      (static_cast<int>(current_x) % 2 == 0 && static_cast<int>(current_y) % 2 == 0)
-                          ? color
-                          : 0x00000000);
-        else 
-            drawPixel(static_cast<int>(current_x), static_cast<int>(current_y), color);
-        
+        drawPixel(static_cast<int>(current_x), static_cast<int>(current_y), color);
         current_x += x_inc;
         current_y += y_inc;
     }
@@ -135,31 +195,24 @@ void Renderer::drawTriangle(Triangle& tri, uint32_t color) {
 //  |       /       \
 //  |      /         \
 //  v +y (x1,y1)------(x2,y2)
-void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, float tx0, float ty0, int x1, int y1,
-                                           float tx1, float ty1, int x2, int y2, float tx2,
-                                           float ty2, uint32_t color, uint32_t* texture) {
+void Renderer::rasterizeFlatBottomTriangle(vec2i_t p0, vec2i_t p1, vec2i_t p2, uint32_t color) {
     // Find the two inverse slopes (two triangle legs)
     // inverse slope = run / rise, which tells us how much x changes for each unit change in y
     // since we are looping over y (scanline by scanline), while slope = rise / run
     float inv_slope_1{};
     float inv_slope_2{};
-    if (y1 - y0 != 0 && y2 - y0 != 0) {
-        inv_slope_1 = static_cast<float>(x1 - x0) / (y1 - y0);
-        inv_slope_2 = static_cast<float>(x2 - x0) / (y2 - y0);
+    if (p1.y() - p0.y() != 0 && p2.y() - p0.y() != 0) {
+        inv_slope_1 = static_cast<float>(p1.x() - p0.x()) / (p1.y() - p0.y());
+        inv_slope_2 = static_cast<float>(p2.x() - p0.x()) / (p2.y() - p0.y());
     }
-                     
+
     // Start x_start and x_end from the top vertex (x0,y0)
-    float x_start = x0;
-    float x_end = x0;
+    float x_start = p0.x();
+    float x_end = p0.x();
 
     // Loop all the scanlines from top to bottom
-    for (int y = y0; y <= y2; y++) {
-        if (texture == nullptr) {
-            drawLine(x_start, y, x_end, y, color);
-        }
-        else {
-            drawLine(x_start, y, x_end, y, color, true);
-        }
+    for (int y = p0.y(); y <= p2.y(); y++) {
+        drawLine(x_start, y, x_end, y, color);
         x_start += inv_slope_1;
         x_end += inv_slope_2;
     }
@@ -175,28 +228,22 @@ void Renderer::rasterizeFlatBottomTriangle(int x0, int y0, float tx0, float ty0,
 // |         \ /
 // |       (x2,y2)
 // v +y
-void Renderer::rasterizeFlatTopTriangle(int x0, int y0, float tx0, float ty0, int x1, int y1,
-                                        float tx1, float ty1, int x2, int y2, float tx2, float ty2,
-                                        uint32_t color, uint32_t* texture) {
+void Renderer::rasterizeFlatTopTriangle(vec2i_t p0, vec2i_t p1, vec2i_t p2, uint32_t color) {
     // Find the two slopes (two triangle legs)
-    float inv_slope_1{}; 
-    float inv_slope_2{}; 
-    if (y2 - y0 != 0 && y2 - y1 != 0) {
-        inv_slope_1 = static_cast<float>(x2 - x0) / (y2 - y0);
-        inv_slope_2 = static_cast<float>(x2 - x1) / (y2 - y1);
+    float inv_slope_1{};
+    float inv_slope_2{};
+    if (p2.y() - p0.y() != 0 && p2.y() - p1.y() != 0) {
+        inv_slope_1 = static_cast<float>(p2.x() - p0.x()) / (p2.y() - p0.y());
+        inv_slope_2 = static_cast<float>(p2.x() - p1.x()) / (p2.y() - p1.y());
     }
 
     // Start x_start and x_end from the bottom vertex (x2,y2)
-    float x_start = x2;
-    float x_end = x2;
+    float x_start = p2.x();
+    float x_end = p2.x();
 
     // Loop all the scanlines from bottom to top
-    for (int y = y2; y >= y0; y--) {
-        if (texture == nullptr) {
-            drawLine(x_start, y, x_end, y, color);
-        } else {
-            drawLine(x_start, y, x_end, y, color, true);
-        }
+    for (int y = p2.y(); y >= p0.y(); y--) {
+        drawLine(x_start, y, x_end, y, color);
         x_start -= inv_slope_1;
         x_end -= inv_slope_2;
     }
@@ -220,39 +267,151 @@ void Renderer::rasterizeFlatTopTriangle(int x0, int y0, float tx0, float ty0, in
 //                           \
 //                         (x2,y2)
 //
-void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color, uint32_t* texture) {
-    std::array<std::tuple<int, int, float, float>, 3> verts = {
-        {{tri.points[0].x(), tri.points[0].y(), tri.text_coords[0].x(), tri.text_coords[0].y()},
-         {tri.points[1].x(), tri.points[1].y(), tri.text_coords[1].x(), tri.text_coords[1].y()},
-         {tri.points[2].x(), tri.points[2].y(), tri.text_coords[2].x(), tri.text_coords[2].y()}}};
+void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color) {
+    std::array<vec2i_t, 3> verts = {
+        vec2i_t{(int)tri.points[0].x(), (int)tri.points[0].y()},
+        vec2i_t{(int)tri.points[1].x(), (int)tri.points[1].y()},
+        vec2i_t{(int)tri.points[2].x(), (int)tri.points[2].y()},
+    };
 
     // Sort by y, where y0 < y1 < y2
-    std::sort(verts.begin(), verts.end(), [](auto& a, auto& b) { return std::get<1>(a) < std::get<1>(b); });
+    std::sort(std::begin(verts), std::end(verts), [](auto& a, auto& b) { return a.y() < b.y(); });
 
-    auto [x0, y0, tx0, ty0] = verts[0];
-    auto [x1, y1, tx1, ty1] = verts[1];
-    auto [x2, y2, tx2, ty2] = verts[2];
+    auto x0 = verts[0].x();
+    auto y0 = verts[0].y();
 
+    auto x1 = verts[1].x();
+    auto y1 = verts[1].y();
+
+    auto x2 = verts[2].x();
+    auto y2 = verts[2].y();
+    
     if (y1 == y2) {
         // Draw flat-bottom triangle
-        rasterizeFlatBottomTriangle(x0, y0, tx0, ty0, x1, y1, tx1, ty1, x2, y2, tx2, ty2, color, texture);
+        rasterizeFlatBottomTriangle({x0, y0}, {x1, y1}, {x2, y2}, color);
     } else if (y0 == y1) {
         // Draw flat-top triangle
-        rasterizeFlatTopTriangle(x0, y0, tx0, ty0, x1, y1, tx1, ty1, x2, y2, tx2, ty2, color, texture);
+        rasterizeFlatTopTriangle({x0, y0}, {x1, y1}, {x2, y2}, color);
     } else {
         // Calculate the new vertex (Mx,My) using triangle similarity
         // Mx - x0      y1 - y0
         // --------- =  ---------  We need Mx
         //  x2 - x0     y2 - y0
-        int My = y1;
-        int Mx = (((x2 - x0) * (y1 - y0)) / (y2 - y0)) + x0; 
+        float factor = float(y1 - y0) / float(y2 - y0);
+
+        float Mx = x0 + factor * (x2 - x0);
+        float My = y1;
+
         // Draw flat-bottom triangle
-        rasterizeFlatBottomTriangle(x0, y0, tx0, ty0, x1, y1, tx1, ty1, Mx, My, tx2, ty2, color,
-                                    texture);
+        rasterizeFlatBottomTriangle({x0, y0}, {x1, y1}, {(int)Mx, (int)My}, color);
         // Draw flat-top triangle
-        rasterizeFlatTopTriangle(x1, y1, tx0, ty0, Mx, My, tx1, ty1, x2, y2, tx2, ty2, color,
-                                 texture);
+        rasterizeFlatTopTriangle({x1, y1}, {(int)Mx, (int)My}, {x2, y2}, color);
     }
+}
+
+void Renderer::rasterizeTexturedTriangle(Triangle& tri, const std::vector<uint32_t>& textureBuffer) {
+    std::array<std::pair<Matrix<int, 4, 1>, vec2f_t>, 3> verts = {
+        {{{(int)tri.points[0].x(), (int)tri.points[0].y(), (int)tri.points[0].z(),(int)tri.points[0].w()}, tri.text_coords[0]},
+         {{(int)tri.points[1].x(), (int)tri.points[1].y(), (int)tri.points[1].z(), (int)tri.points[1].w()}, tri.text_coords[1]},
+         {{(int)tri.points[2].x(), (int)tri.points[2].y(), (int)tri.points[2].z(), (int)tri.points[2].w()}, tri.text_coords[2]}}};
+
+    // Sort by y, where y0 < y1 < y2
+    std::sort(verts.begin(), verts.end(),
+              [](auto& a, auto& b) { return a.first.y() < b.first.y(); });
+
+    // p = point, t = texture coordinate
+    auto& [p0, t0] = verts[0];
+    auto& [p1, t1] = verts[1];
+    auto& [p2, t2] = verts[2];
+
+    auto& u0 = t0.x();
+    auto& v0 = t0.y();
+    auto& u1 = t1.x();
+    auto& v1 = t1.y();
+    auto& u2 = t2.x();
+    auto& v2 = t2.y();
+
+    auto& x0 = p0.x();
+    auto& y0 = p0.y();
+    auto& z0 = p0.z();
+    auto& w0 = p0.w();
+
+    auto& x1 = p1.x();
+    auto& y1 = p1.y();
+    auto& z1 = p1.z();
+    auto& w1 = p1.w();
+
+    auto& x2 = p2.x();
+    auto& y2 = p2.y();
+    auto& z2 = p2.z();
+    auto& w2 = p2.w();
+
+    // flip the V Component to account for inverted UV coordinates
+    v0 = 1.0 - v0;
+    v1 = 1.0 - v1;
+    v2 = 1.0 - v2;
+
+    Matrix<float, 4, 1> point_a = {(float)x0, (float)y0, (float)z0, (float)w0};
+    Matrix<float, 4, 1> point_b = {(float)x1, (float)y1, (float)z1, (float)w1};
+    Matrix<float, 4, 1> point_c = {(float)x2, (float)y2, (float)z2, (float)w2};
+    vec2f_t a_uv = {u0, v0};
+    vec2f_t b_uv = {u1, v1};
+    vec2f_t c_uv = {u2, v2};
+
+    ///////////////////////////////////////////////////////
+    // Render the upper part of the triangle (flat-bottom)
+    ///////////////////////////////////////////////////////
+    float inv_slope_1 = 0;
+    float inv_slope_2 = 0;
+
+    if (y1 - y0 != 0)
+        inv_slope_1 = (float)(x1 - x0) / abs(y1 - y0);
+    if (y2 - y0 != 0)
+        inv_slope_2 = (float)(x2 - x0) / abs(y2 - y0);
+
+    if (y1 - y0 != 0) {
+        for (int y = y0; y <= y1; y++) {
+            int x_start = x1 + (y - y1) * inv_slope_1;
+            int x_end = x0 + (y - y0) * inv_slope_2;
+
+            if (x_end < x_start) {
+                std::swap(x_start, x_end);  // swap if x_start is to the right of x_end
+            }
+
+            for (int x = x_start; x < x_end; x++) {
+                // Draw our pixel with the color that comes from the texture
+                drawTexel({x, y}, textureBuffer, point_a, point_b, point_c, a_uv, b_uv, c_uv);
+            }
+        }
+    }
+    
+    ///////////////////////////////////////////////////////
+    // Render the bottom part of the triangle (flat-top)
+    ///////////////////////////////////////////////////////
+    inv_slope_1 = 0;
+    inv_slope_2 = 0;
+
+    if (y2 - y1 != 0)
+        inv_slope_1 = (float)(x2 - x1) / abs(y2 - y1);
+    if (y2 - y0 != 0)
+        inv_slope_2 = (float)(x2 - x0) / abs(y2 - y0);
+
+    if (y2 - y1 != 0) {
+        for (int y = y1; y <= y2; y++) {
+            int x_start = x1 + (y - y1) * inv_slope_1;
+            int x_end = x0 + (y - y0) * inv_slope_2;
+
+            if (x_end < x_start) {
+                std::swap(x_start, x_end);  // swap if x_start is to the right of x_end
+            }
+
+            for (int x = x_start; x < x_end; x++) {
+                // Draw our pixel with the color that comes from the texture
+                drawTexel({x, y}, textureBuffer, point_a, point_b, point_c, a_uv, b_uv, c_uv);
+            }
+        }
+    }
+
 }
 
 void Renderer::renderColorBuffer() {
@@ -350,7 +509,7 @@ void Renderer::constructProjectionMatrix(float fov, float aspectRatio, float zne
     _persProjMatrix(3, 3) = 0.0f;
 }
 
-vec2f_t Renderer::project(vec3f_t& point) { 
+Matrix<float, 4, 1> Renderer::project(vec3f_t& point) { 
     Matrix<float, 4, 1> vec =
         _persProjMatrix * Matrix<float, 4, 1>{point.x(), point.y(), point.z(), 1.0f};
     
@@ -358,13 +517,13 @@ vec2f_t Renderer::project(vec3f_t& point) {
     //TODO
     
     // perform perspective divide
-    //w_component = vec(3, 0) is the original Z value of the 3d point before projection
+    // w_component = vec(3, 0) is the original Z value of the 3d point before projection
     if (vec(3, 0) != 0.0f) {
         vec(0, 0) /= vec(3, 0);
         vec(1, 0) /= vec(3, 0);
         vec(2, 0) /= vec(3, 0);
     }
-    return {vec(0, 0), vec(1, 0)};
+    return vec;
 }
 
 uint32_t Renderer::calculateLightIntensityColor(uint32_t original_color, float percentage_factor) {
@@ -378,6 +537,21 @@ uint32_t Renderer::calculateLightIntensityColor(uint32_t original_color, float p
     uint32_t b = (original_color & 0x000000FF) * percentage_factor;
 
     return (a | (r & 0x00FF0000) | (g & 0x0000FF00) | (b & 0x000000FF)); // new color
+}
+
+ void Renderer::loadPNGTextureData(const std::string& fileName) {
+    _pngTexture = std::unique_ptr<upng_t, decltype(&upng_free)>(
+        upng_new_from_file(fileName.c_str()), upng_free);
+    if (_pngTexture != nullptr) {
+        upng_decode(_pngTexture.get());
+        if (upng_get_error(_pngTexture.get()) == UPNG_EOK) {
+            auto buffer = (uint32_t*)upng_get_buffer(_pngTexture.get());
+            _textureWidth = upng_get_width(_pngTexture.get());
+            _textureHeight = upng_get_height(_pngTexture.get());
+            _meshTextureBuffer =
+                std::vector<uint32_t>(buffer, buffer + (_textureWidth * _textureHeight));
+        }
+    }
 }
 
 void Renderer::update() {
@@ -414,9 +588,9 @@ void Renderer::update() {
         for (auto& face : _mesh.faces) {
             int i{0};
             std::array<vec3f_t, 3> face_vertices;
-            face_vertices[0] = _mesh.vertices[face.a - 1];
-            face_vertices[1] = _mesh.vertices[face.b - 1];
-            face_vertices[2] = _mesh.vertices[face.c - 1];
+            face_vertices[0] = _mesh.vertices[face.a];
+            face_vertices[1] = _mesh.vertices[face.b];
+            face_vertices[2] = _mesh.vertices[face.c];
 
             for (auto& vertex : face_vertices) {
                 Matrix<float, 4, 1> vec =
@@ -458,8 +632,7 @@ void Renderer::update() {
             _trianglesToRender.push_back(projected_triangle);
         }
         // sort triangles from back to front based on average depth
-        // C++ std::sort is an introspective sort algorithm, which is a hybrid sorting algorithm
-        // complexity O(n log(n))
+        // C++ std::sort is an introspective sort algorithm, complexity O(n log(n))
         std::sort(std::begin(_trianglesToRender), std::end(_trianglesToRender),
                   [](const Triangle& t1, const Triangle& t2) { return t1.avg_depth > t2.avg_depth; });
         // store the last frame triangles, incase of pause is hit we can still render the last frame
@@ -492,19 +665,18 @@ void Renderer::render(double timer_value) {
         if (raster) {
             auto light_intensity_factor = -(triangle.normal * _lightDirection);
             auto color = calculateLightIntensityColor(triangle.color, light_intensity_factor);
-            rasterizeTriangle(triangle, color, nullptr);
+            rasterizeTriangle(triangle, color);
             wireframe_color = 0xFF000000;  // black
         }
-        if (textured) {
-            auto color = 0XFFFF00FF;
-            _meshTexture = std::make_unique<uint32_t>(100);  // dummy texture
-            rasterizeTriangle(triangle, color, _meshTexture.get());
-            wireframe_color = 0xFFFF0000;  // red
-        }
+        if (textured && !_meshTextureBuffer.empty()) {
+            rasterizeTexturedTriangle(triangle, _meshTextureBuffer);
+            wireframe_color = 0xFF000000;  // black
+        } 
         if (showVertices) {
-            drawRect(triangle.points[0].x(), triangle.points[0].y(), 3, 3, 0xFFFF0000);
-            drawRect(triangle.points[1].x(), triangle.points[1].y(), 3, 3, 0xFFFF0000);
-            drawRect(triangle.points[2].x(), triangle.points[2].y(), 3, 3, 0xFFFF0000);
+            // draw red vertices
+            drawRect(triangle.points[0].x(), triangle.points[0].y(), 3, 3, 0xFF0000FF);
+            drawRect(triangle.points[1].x(), triangle.points[1].y(), 3, 3, 0xFF0000FF);
+            drawRect(triangle.points[2].x(), triangle.points[2].y(), 3, 3, 0xFF0000FF);
         }
         if (wireframe) {
             drawTriangle(triangle, wireframe_color);
@@ -541,13 +713,15 @@ void Renderer::render(double timer_value) {
     _timer.endWatch();
 }
 
-void Renderer::loadObjFileData(const std::string& obj_file_path) {
+bool Renderer::loadObjFileData(const std::string& obj_file_path) {
     FILE* file = fopen(obj_file_path.c_str(), "r");
     if (!file) {
         std::cerr << "Error opening file: " << obj_file_path << '\n';
-        return;
+        return false;
     }
     char line[1024];
+
+    std::vector<vec2f_t> textureCoords;
 
     while (fgets(line, 1024, file)) {
         vec3f_t vertex;
@@ -558,6 +732,16 @@ void Renderer::loadObjFileData(const std::string& obj_file_path) {
                 continue;
             }
             _mesh.vertices.push_back(vertex);
+        }
+
+        vec2f_t textureCoord;
+        //texture coordinates information
+        if (strncmp(line, "vt ", 3) == 0) {
+            if (sscanf(line, "vt %f %f", &textureCoord.x(), &textureCoord.y()) != 2) {
+                std::cerr << "Error parsing texture coordinates line: " << line << '\n';
+                continue;
+            }
+            textureCoords.push_back(textureCoord);
         }
 
         //int indices[9];  // 0-vertex_index, 1-texture_index, 2-normal_index,........,6-vertex_index, 7-texture_index, 8-normal_index
@@ -573,15 +757,18 @@ void Renderer::loadObjFileData(const std::string& obj_file_path) {
                 std::cerr << "Error parsing face line: " << line << '\n';
                 continue;
             }
-            Face face = {.a = vertex_indicies[0],
-                         .b = vertex_indicies[1],
-                         .c = vertex_indicies[2],
+            Face face = {.a_uv = textureCoords[texture_indicies[0] - 1],
+                         .b_uv = textureCoords[texture_indicies[1] - 1],
+                         .c_uv = textureCoords[texture_indicies[2] - 1],
+                         .a = vertex_indicies[0] - 1,
+                         .b = vertex_indicies[1] - 1,
+                         .c = vertex_indicies[2] - 1,
                          .color = 0xFFFFFFFF};
             _mesh.faces.push_back(face);
         }
     }
-    fclose(file);
     normalizeModel(_mesh.vertices);
+    return 0 == fclose(file);
 }
 
 std::pair<bool, vec3f_t> Renderer::CullingCheck(std::array<vec3f_t, 3>& face_vertices) {

@@ -10,7 +10,9 @@
 #include "timer.hpp"
 #include "vector.hpp"
 #include "matrix.hpp"
-// 3d-Party_Libs
+// internal thirdparty
+#include "upng.h"
+// 3rd-Party_Libs
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
@@ -64,24 +66,26 @@ public:
 private:
     void drawGrid();
     void drawPixel(int x, int y, uint32_t color);
+    void drawTexel(vec2i_t point, const std::vector<uint32_t> texture, Matrix<float, 4, 1> a,
+                   Matrix<float, 4, 1> b, Matrix<float, 4, 1> c, vec2f_t uv0, vec2f_t uv1,
+                   vec2f_t uv2);
+    vec3f_t barycentric_weights(vec2f_t a, vec2f_t b, vec2f_t c, vec2f_t p);
     void drawRect(int x, int y, int width, int height, uint32_t color);
-    void drawLine(int x0, int y0, int x1, int y1, uint32_t color, bool dashed_line = false);
+    void drawLine(int x0, int y0, int x1, int y1, uint32_t color);
     void drawTriangle(Triangle& tri, uint32_t color);
-    void rasterizeTriangle(Triangle& tri, uint32_t color, uint32_t* texture);
-    void rasterizeFlatBottomTriangle(int x0, int y0, float tx0, float ty0, int x1, int y1,
-                                     float tx1, float ty1, int x2, int y2, float tx2, float ty2,
-                                     uint32_t color, uint32_t* texture);
-    void rasterizeFlatTopTriangle(int x0, int y0, float tx0, float ty0, int x1, int y1, float tx1,
-                                  float ty1, int x2, int y2, float tx2, float ty2, uint32_t color,
-                                  uint32_t* texture);
+    void rasterizeTexturedTriangle(Triangle& tri, const std::vector<uint32_t>& textureBuffer);
+    void rasterizeTriangle(Triangle& tri, uint32_t color);
+    void rasterizeFlatBottomTriangle(vec2i_t p0, vec2i_t p1, vec2i_t p2, uint32_t color);
+    void rasterizeFlatTopTriangle(vec2i_t p0, vec2i_t p1, vec2i_t p2, uint32_t color);
     void renderColorBuffer();
     void clearColorBuffer(uint32_t color);
-    void loadObjFileData(const std::string& obj_file_path);
     void normalizeModel(std::vector<vec3f_t>& vertices);
     std::pair<bool, vec3f_t> CullingCheck(std::array<vec3f_t, 3>& face_vertices);
     void constructProjectionMatrix(float fov, float aspectRatio, float znear, float zfar);
-    vec2f_t project(vec3f_t& point);
+    Matrix<float, 4, 1> project(vec3f_t& point);
     uint32_t calculateLightIntensityColor(uint32_t original_color, float percentage_factor);
+    bool loadObjFileData(const std::string& obj_file_path);
+    void loadPNGTextureData(const std::string& fileName);
 
 
 private:
@@ -120,6 +124,9 @@ private:
     vec3f_t _lightDirection = {0, 0, 1};
     RenderMode _currentRenderMode = RenderMode::WIREFRAME;
     SDL_Color _renderModeTextColor = {255, 255, 255, 255};
-    std::unique_ptr<uint32_t> _meshTexture = nullptr;
+    int _textureWidth;
+    int _textureHeight;
+    std::vector<uint32_t> _meshTextureBuffer;
+    std::unique_ptr<upng_t, decltype(&upng_free)> _pngTexture{nullptr, upng_free};
     Timer _timer;
 };

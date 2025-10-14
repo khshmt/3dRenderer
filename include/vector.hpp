@@ -29,6 +29,26 @@ public:
         return _z;
     }
 
+    operator vector<int, N>() { 
+        auto x = static_cast<int>(this->x());
+        auto y = static_cast<int>(this->y());
+        if (N == 3) {
+            auto z = static_cast<int>(this->z());
+            return {x, y, z};
+        }
+        return {x, y};
+    }
+
+    operator vector<float, N>() {
+        auto x = static_cast<float>(this->x());
+        auto y = static_cast<float>(this->y());
+        if (N == 3) {
+            auto z = static_cast<float>(this->z());
+            return {x, y, z};
+        }
+        return {x, y};
+    }
+
     void rotateAroundX(T angle) {
         // static_assert(N == 3);
         //_x is the same

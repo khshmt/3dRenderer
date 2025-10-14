@@ -3,6 +3,7 @@
 #include <vector>
 #include <array>
 #include <iostream>
+#include <algorithm>
 
 template<typename T, size_t M, size_t N>
 class Matrix {
@@ -121,6 +122,36 @@ public:
         Matrix<T, 4, 4> Ry{cos_beta, 0, sin_beta, 0, 0, 1, 0, 0, -sin_beta, 0, cos_beta, 0, 0, 0, 0, 1};
         Matrix<T, 4, 4> Rz{cos_gamma, -sin_gamma, 0, 0, sin_gamma, cos_gamma, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
         return Rz * Ry * Rx;  // order of multiplication Doesn't matter
+    }
+
+    T x() const { return _data[0]; }
+    T y() const { return _data[1]; }
+    T z() const { 
+        if (_rows * _cols < 3) {
+            throw std::invalid_argument("Matrix does not have a z component.");
+        }
+        return _data[2]; 
+    }
+    T w() const { 
+        if (_rows * _cols < 4) {
+            throw std::invalid_argument("Matrix does not have a w component.");
+        }
+        return _data[3]; 
+    }
+
+    T& x() { return _data[0]; }
+    T& y() { return _data[1]; }
+    T& z() { 
+        if (_rows * _cols < 3) {
+            throw std::invalid_argument("Matrix does not have a z component.");
+        }
+        return _data[2]; 
+    }
+    T& w() { 
+        if (_rows * _cols < 4) {
+            throw std::invalid_argument("Matrix does not have a w component.");
+        }
+        return _data[3]; 
     }
 
 private:
