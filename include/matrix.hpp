@@ -72,6 +72,18 @@ public:
         return os;
     }
 
+    Matrix<int, 4, 1> toInt() const {
+        if (_rows * _cols == 4)
+            return {static_cast<int>(_data[0]), static_cast<int>(_data[1]),
+                    static_cast<int>(_data[2]), static_cast<int>(_data[3])}; 
+    }
+
+    Matrix<float, 4, 1> toFloat() const {
+        if (_rows * _cols == 4)
+            return {static_cast<float>(_data[0]), static_cast<float>(_data[1]),
+                    static_cast<float>(_data[2]), static_cast<float>(_data[3])};
+    }
+
     void setEye() {
         std::fill(std::begin(_data), std::end(_data), 0);
         for (size_t i = 0; i < std::min(_rows, _cols); i++) {
@@ -152,6 +164,15 @@ public:
             throw std::invalid_argument("Matrix does not have a w component.");
         }
         return _data[3]; 
+    }
+
+    std::tuple<T, T, T, T> get4() {
+        if (_rows * _cols == 4)
+            return {_data[0], _data[1], _data[2], _data[3]};
+    }
+    std::tuple<T, T, T> get3() { 
+        if (_rows * _cols == 3)
+            return {_data[0], _data[1], _data[2]};
     }
 
 private:

@@ -14,15 +14,15 @@ bool Renderer::initializeWindow(bool fullscreen) {
     SDL_DisplayMode display_mode;
     auto success = SDL_GetCurrentDisplayMode(0, &display_mode);
     if (success == 0) {  //if zero returned that means success
-        _width = display_mode.w;
-        _height = display_mode.h;
+        _windowWidth = display_mode.w;
+        _windowHeight = display_mode.h;
         std::cout << "-Screen refersh_rate: " << display_mode.refresh_rate << " Hz\n";
-        std::cout << "-Screen dims: " << _width << "x" << _height << '\n';
+        std::cout << "-Screen dims: " << _windowWidth << "x" << _windowHeight << '\n';
     }
 
     if (_windowPtr = std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>(
-            SDL_CreateWindow(nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, _width,
-                             _height, SDL_WINDOW_RESIZABLE),
+            SDL_CreateWindow(nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, _windowWidth,
+                             _windowHeight, SDL_WINDOW_RESIZABLE),
             SDL_DestroyWindow);
         !_windowPtr) {
         std::cerr << "Error creating a window\n";
@@ -52,37 +52,40 @@ bool Renderer::initializeWindow(bool fullscreen) {
 }
 
 bool Renderer::setupWindow(const std::string& obj_file_path) {
-    _colorBuffer.resize(_width * _height);
+    _colorBuffer.reserve(_windowWidth * _windowHeight);
 
     if (_colorBufferTexturePtr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
             SDL_CreateTexture(_rendererPtr.get(), SDL_PIXELFORMAT_ABGR8888,
-                              SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, _width, _height),
+                              SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, _windowWidth, _windowHeight),
             SDL_DestroyTexture);
         !_colorBufferTexturePtr) {
         std::cout << "falied to create Texture\n";
         return false;
     }
 
-    constructProjectionMatrix(60.0, static_cast<float>(_height) / _width, 0.1, 100.0);
+    constructProjectionMatrix(60.0, static_cast<float>(_windowHeight) / _windowWidth, 0.1, 100.0);
 
     auto objloaded = loadObjFileData(obj_file_path);
     auto png_file_path = std::filesystem::path(obj_file_path).replace_extension(".png");
     if (std::filesystem::exists(png_file_path)) {
         loadPNGTextureData(png_file_path.string());
     }
+    _trianglesToRender.reserve(_mesh.faces.size());
+    _lastTrianglesToRender.reserve(_mesh.faces.size());
     return objloaded;
 }
 
 void Renderer::drawPixel(int x, int y, uint32_t color) {
-    if (x >= 0 && x < _width && y >= 0 && y < _height) {
-        _colorBuffer[(_width * y) + x] = color;
+    if (x >= 0 && x < _windowWidth && y >= 0 && y < _windowHeight) {
+        _colorBuffer[(_windowWidth * y) + x] = color;
     }
 }
 
-void Renderer::drawTexel(vec2i_t point, const std::vector<uint32_t> texture, Matrix<float, 4, 1> a,
-                         Matrix<float, 4, 1> b, Matrix<float, 4, 1> c, vec2f_t uv0, vec2f_t uv1,
-                         vec2f_t uv2) {
-    vec2f_t point_p = {(float)point.x(), (float)point.y()};
+void Renderer::drawTexel(const vec2i_t& point, const std::vector<uint32_t>& texture,
+                         const Matrix<float, 4, 1>& a, const Matrix<float, 4, 1>& b,
+                         const Matrix<float, 4, 1>& c, const vec2f_t& uv0, const vec2f_t& uv1,
+                         const vec2f_t& uv2) {
+    vec2f_t point_p{(float)point.x(), (float)point.y()};
     vec3f_t weights = barycentric_weights(vec2f_t{a.x(), a.y()}, vec2f_t{b.x(), b.y()},
                                           vec2f_t{c.x(), c.y()}, point_p);
 
@@ -117,7 +120,8 @@ void Renderer::drawTexel(vec2i_t point, const std::vector<uint32_t> texture, Mat
     drawPixel(point.x(), point.y(), texture[(_textureWidth * tex_y) + tex_x]);
 }
 
-vec3f_t Renderer::barycentric_weights(vec2f_t a, vec2f_t b, vec2f_t c, vec2f_t p) {
+vec3f_t Renderer::barycentric_weights(const vec2f_t& a, const vec2f_t& b, const vec2f_t& c,
+                                      const vec2f_t& p) {
     // Find the vectors between the vertices ABC and point p
     auto ac = c - a;
     auto ab = b - a;
@@ -142,9 +146,9 @@ vec3f_t Renderer::barycentric_weights(vec2f_t a, vec2f_t b, vec2f_t c, vec2f_t p
 }
 
 void Renderer::drawGrid() {
-    for (uint32_t y{0}; y < _height; y += 20) {
-        for (uint32_t x{0}; x < _width; x += 20) {
-            _colorBuffer[(_width * y) + x] = 0xFFFFFFFF;
+    for (uint32_t y{0}; y < _windowHeight; y += 20) {
+        for (uint32_t x{0}; x < _windowWidth; x += 20) {
+            _colorBuffer[(_windowWidth * y) + x] = 0xFFFFFFFF;
         }
     }
 }
@@ -180,7 +184,7 @@ void Renderer::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
     }
 }
 
-void Renderer::drawTriangle(Triangle& tri, uint32_t color) {
+void Renderer::drawTriangle(const Triangle& tri, uint32_t color) {
     drawLine(tri.points[0].x(), tri.points[0].y(), tri.points[1].x(), tri.points[1].y(), color);
     drawLine(tri.points[1].x(), tri.points[1].y(), tri.points[2].x(), tri.points[2].y(), color);
     drawLine(tri.points[2].x(), tri.points[2].y(), tri.points[0].x(), tri.points[0].y(), color);
@@ -195,7 +199,8 @@ void Renderer::drawTriangle(Triangle& tri, uint32_t color) {
 //  |       /       \
 //  |      /         \
 //  v +y (x1,y1)------(x2,y2)
-void Renderer::rasterizeFlatBottomTriangle(vec2i_t p0, vec2i_t p1, vec2i_t p2, uint32_t color) {
+void Renderer::rasterizeFlatBottomTriangle(const vec2i_t& p0, const vec2i_t& p1, const vec2i_t& p2,
+                                           uint32_t color) {
     // Find the two inverse slopes (two triangle legs)
     // inverse slope = run / rise, which tells us how much x changes for each unit change in y
     // since we are looping over y (scanline by scanline), while slope = rise / run
@@ -228,7 +233,8 @@ void Renderer::rasterizeFlatBottomTriangle(vec2i_t p0, vec2i_t p1, vec2i_t p2, u
 // |         \ /
 // |       (x2,y2)
 // v +y
-void Renderer::rasterizeFlatTopTriangle(vec2i_t p0, vec2i_t p1, vec2i_t p2, uint32_t color) {
+void Renderer::rasterizeFlatTopTriangle(const vec2i_t& p0, const vec2i_t& p1, const vec2i_t& p2,
+                                        uint32_t color) {
     // Find the two slopes (two triangle legs)
     float inv_slope_1{};
     float inv_slope_2{};
@@ -267,7 +273,7 @@ void Renderer::rasterizeFlatTopTriangle(vec2i_t p0, vec2i_t p1, vec2i_t p2, uint
 //                           \
 //                         (x2,y2)
 //
-void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color) {
+void Renderer::rasterizeTriangle(const Triangle& tri, uint32_t color) {
     std::array<vec2i_t, 3> verts = {
         vec2i_t{(int)tri.points[0].x(), (int)tri.points[0].y()},
         vec2i_t{(int)tri.points[1].x(), (int)tri.points[1].y()},
@@ -309,11 +315,11 @@ void Renderer::rasterizeTriangle(Triangle& tri, uint32_t color) {
     }
 }
 
-void Renderer::rasterizeTexturedTriangle(Triangle& tri, const std::vector<uint32_t>& textureBuffer) {
+void Renderer::rasterizeTexturedTriangle(const Triangle& tri, const std::vector<uint32_t>& textureBuffer) {
     std::array<std::pair<Matrix<int, 4, 1>, vec2f_t>, 3> verts = {
-        {{{(int)tri.points[0].x(), (int)tri.points[0].y(), (int)tri.points[0].z(),(int)tri.points[0].w()}, tri.text_coords[0]},
-         {{(int)tri.points[1].x(), (int)tri.points[1].y(), (int)tri.points[1].z(), (int)tri.points[1].w()}, tri.text_coords[1]},
-         {{(int)tri.points[2].x(), (int)tri.points[2].y(), (int)tri.points[2].z(), (int)tri.points[2].w()}, tri.text_coords[2]}}};
+        {{tri.points[0].toInt(), tri.text_coords[0]},
+         {tri.points[1].toInt(), tri.text_coords[1]},
+         {tri.points[2].toInt(), tri.text_coords[2]}}};
 
     // Sort by y, where y0 < y1 < y2
     std::sort(verts.begin(), verts.end(),
@@ -324,27 +330,13 @@ void Renderer::rasterizeTexturedTriangle(Triangle& tri, const std::vector<uint32
     auto& [p1, t1] = verts[1];
     auto& [p2, t2] = verts[2];
 
-    auto& u0 = t0.x();
-    auto& v0 = t0.y();
-    auto& u1 = t1.x();
-    auto& v1 = t1.y();
-    auto& u2 = t2.x();
-    auto& v2 = t2.y();
+    auto [u0, v0] = t0.get2();
+    auto [u1, v1] = t1.get2();
+    auto [u2, v2] = t2.get2();
 
-    auto& x0 = p0.x();
-    auto& y0 = p0.y();
-    auto& z0 = p0.z();
-    auto& w0 = p0.w();
-
-    auto& x1 = p1.x();
-    auto& y1 = p1.y();
-    auto& z1 = p1.z();
-    auto& w1 = p1.w();
-
-    auto& x2 = p2.x();
-    auto& y2 = p2.y();
-    auto& z2 = p2.z();
-    auto& w2 = p2.w();
+    auto [x0, y0, z0, w0] = p0.get4();
+    auto [x1, y1, z1, w1] = p1.get4();
+    auto [x2, y2, z2, w2] = p2.get4();
 
     // flip the V Component to account for inverted UV coordinates
     v0 = 1.0 - v0;
@@ -416,16 +408,16 @@ void Renderer::rasterizeTexturedTriangle(Triangle& tri, const std::vector<uint32
 
 void Renderer::renderColorBuffer() {
     SDL_UpdateTexture(_colorBufferTexturePtr.get(), nullptr, _colorBuffer.data(),
-                      (int)(sizeof(uint32_t) * _width)  //Pitch ==> size of one row in bytes
+                      (int)(sizeof(uint32_t) * _windowWidth)  //Pitch ==> size of one row in bytes
     );
 
     SDL_RenderCopy(_rendererPtr.get(), _colorBufferTexturePtr.get(), nullptr, nullptr);
 }
 
 void Renderer::clearColorBuffer(uint32_t color) {
-    for (uint32_t y{0}; y < _height; ++y) {
-        for (uint32_t x{0}; x < _width; ++x) {
-            _colorBuffer[(_width * y) + x] = color;
+    for (uint32_t y{0}; y < _windowHeight; ++y) {
+        for (uint32_t x{0}; x < _windowWidth; ++x) {
+            _colorBuffer[(_windowWidth * y) + x] = color;
         }
     }
 }
@@ -599,8 +591,8 @@ void Renderer::update() {
         _mesh.translation.z() = -_cameraPosition.z();
         // Roation
         _mesh.rotation.x() += 0.01;
-        //_mesh.rotation.y() += 0.01;
-        //_mesh.rotation.z() += 0.01;
+        _mesh.rotation.y() += 0.01;
+        _mesh.rotation.z() += 0.01;
 
         _worldMatrix.setEye();
         _worldMatrix.setScale(_mesh.scale.x(), _mesh.scale.y(), _mesh.scale.z());
@@ -633,15 +625,15 @@ void Renderer::update() {
             for (auto& vertex : face_vertices) {
                 auto projected_point = project(vertex);
                 // scale into view
-                projected_point.x() *= _width / 2.0;   
-                projected_point.y() *= _height / 2.0; 
+                projected_point.x() *= _windowWidth / 2.0;   
+                projected_point.y() *= _windowHeight / 2.0; 
 
                 // invert y axis to account for flipped screen y coordinates
                 projected_point.y() *= -1; 
 
                 // translate to the center of the screen
-                projected_point.x() += _width / 2.0;  
-                projected_point.y() += _height / 2.0;
+                projected_point.x() += _windowWidth / 2.0;  
+                projected_point.y() += _windowHeight / 2.0;
                 projected_triangle.points[i++] = projected_point;
 
                 projected_triangle.text_coords[0] = face.a_uv;
@@ -652,14 +644,14 @@ void Renderer::update() {
                 projected_triangle.normal = face.normal;
                 projected_triangle.color = face.color;
             }
-            _trianglesToRender.push_back(projected_triangle);
+            _trianglesToRender.emplace_back(projected_triangle);
         }
         // sort triangles from back to front based on average depth
         // C++ std::sort is an introspective sort algorithm, complexity O(n log(n))
         std::sort(std::begin(_trianglesToRender), std::end(_trianglesToRender),
                   [](const Triangle& t1, const Triangle& t2) { return t1.avg_depth > t2.avg_depth; });
         // store the last frame triangles, incase of pause is hit we can still render the last frame
-        _lastTrianglesToRender = std::move(_trianglesToRender);  
+        _lastTrianglesToRender = std::move(_trianglesToRender);
     }
     _timer.endWatch();
 }
@@ -715,8 +707,8 @@ void Renderer::render(double timer_value) {
         t1 = t2;
     }
     const vec2i_t dims1{100, 30};
-    drawText(std::string("fps: "s + timer_value_), dims1, {(_width - dims1.x()) / 2, 40},
-             stoi(timer_value_) < 30 ? false : true);
+    drawText(std::string("fps: "s + timer_value_), dims1, {(_windowWidth - dims1.x()) / 2, 40},
+             stoi(timer_value_) < _fps ? false : true);
 
     const vec2i_t dims2{40, 30};
     drawText("Profiles: ", {100, 30}, {40, 40}, false);
@@ -794,7 +786,7 @@ bool Renderer::loadObjFileData(const std::string& obj_file_path) {
     return 0 == fclose(file);
 }
 
-std::pair<bool, vec3f_t> Renderer::CullingCheck(std::array<vec3f_t, 3>& face_vertices) {
+std::pair<bool, vec3f_t> Renderer::CullingCheck(const std::array<vec3f_t, 3>& face_vertices) {
     auto vec_a = face_vertices[0];
     auto vec_b = face_vertices[1];
     auto vec_c = face_vertices[2];

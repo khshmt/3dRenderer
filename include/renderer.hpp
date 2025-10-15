@@ -55,31 +55,35 @@ class RENDERER_API Renderer {
 public:
     bool initializeWindow(bool fullscreen = false);
     bool setupWindow(const std::string& obj_file_path);
-    void destroyWindow();
-    void processInput();
     bool getWindowState();
+    void processInput();
     void update();
     void render(double timer_value);
-    void drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos, bool enabledMode);
+    void destroyWindow();
 
 private:
+    void drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos, bool enabledMode);
     void drawGrid();
     void drawPixel(int x, int y, uint32_t color);
-    void drawTexel(vec2i_t point, const std::vector<uint32_t> texture, Matrix<float, 4, 1> a,
-                   Matrix<float, 4, 1> b, Matrix<float, 4, 1> c, vec2f_t uv0, vec2f_t uv1,
-                   vec2f_t uv2);
-    vec3f_t barycentric_weights(vec2f_t a, vec2f_t b, vec2f_t c, vec2f_t p);
+    void drawTexel(const vec2i_t& point, const std::vector<uint32_t>& texture,
+                   const Matrix<float, 4, 1>& a, const Matrix<float, 4, 1>& b,
+                   const Matrix<float, 4, 1>& c, const vec2f_t& uv0, const vec2f_t& uv1,
+                   const vec2f_t& uv2);
+    vec3f_t barycentric_weights(const vec2f_t& a, const vec2f_t& b, const vec2f_t& c,
+                                const vec2f_t& p);
     void drawRect(int x, int y, int width, int height, uint32_t color);
     void drawLine(int x0, int y0, int x1, int y1, uint32_t color);
-    void drawTriangle(Triangle& tri, uint32_t color);
-    void rasterizeTexturedTriangle(Triangle& tri, const std::vector<uint32_t>& textureBuffer);
-    void rasterizeTriangle(Triangle& tri, uint32_t color);
-    void rasterizeFlatBottomTriangle(vec2i_t p0, vec2i_t p1, vec2i_t p2, uint32_t color);
-    void rasterizeFlatTopTriangle(vec2i_t p0, vec2i_t p1, vec2i_t p2, uint32_t color);
+    void drawTriangle(const Triangle& tri, uint32_t color);
+    void rasterizeTexturedTriangle(const Triangle& tri, const std::vector<uint32_t>& textureBuffer);
+    void rasterizeTriangle(const Triangle& tri, uint32_t color);
+    void rasterizeFlatBottomTriangle(const vec2i_t& p0, const vec2i_t& p1, const vec2i_t& p2,
+                                     uint32_t color);
+    void rasterizeFlatTopTriangle(const vec2i_t& p0, const vec2i_t& p1, const vec2i_t& p2,
+                                  uint32_t color);
     void renderColorBuffer();
     void clearColorBuffer(uint32_t color);
     void normalizeModel(std::vector<vec3f_t>& vertices);
-    std::pair<bool, vec3f_t> CullingCheck(std::array<vec3f_t, 3>& face_vertices);
+    std::pair<bool, vec3f_t> CullingCheck(const std::array<vec3f_t, 3>& face_vertices);
     void constructProjectionMatrix(float fov, float aspectRatio, float znear, float zfar);
     Matrix<float, 4, 1> project(vec3f_t& point);
     uint32_t calculateLightIntensityColor(uint32_t original_color, float percentage_factor);
@@ -88,18 +92,16 @@ private:
 
 
 private:
-    std::atomic_bool _isRunning = false;
-    std::atomic_bool _pause{false};
-    std::atomic_bool _enableFaceCulling{true};
+    Timer _timer;
+    Mesh _mesh;
 
-    bool _firstFrame{true};
+    Matrix<float, 4, 4> _worldMatrix;
+    Matrix<float, 4, 4> _persProjMatrix;  // perspective projection matrix
 
-    int _width{800};
-    int _height{600};
-
-    uint32_t _previousFrameTime{0};
-    const uint32_t _fps{30};
-    const uint32_t _frameTargetTime{1000 / _fps};  //the time of one frame
+    std::vector<Triangle> _trianglesToRender;
+    std::vector<Triangle> _lastTrianglesToRender;
+    std::vector<uint32_t> _colorBuffer;
+    std::vector<uint32_t> _meshTextureBuffer;
 
     std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> _windowPtr =
         std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>(nullptr, SDL_DestroyWindow);
@@ -109,22 +111,25 @@ private:
     
     std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)> _colorBufferTexturePtr =
         std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(nullptr, SDL_DestroyTexture);
-    
-    TTF_Font* _ttfTextRenerer = nullptr;
 
-    std::vector<uint32_t> _colorBuffer;
-    std::vector<Triangle> _trianglesToRender;
-    std::vector<Triangle> _lastTrianglesToRender;
-    Mesh _mesh;
-
-    Matrix<float, 4, 4> _worldMatrix;
-    Matrix<float, 4, 4> _persProjMatrix;  // perspective projection matrix
     vec3f_t _cameraPosition = {0, 0, -5};
     vec3f_t _lightDirection = {0, 0, 1};
+
+    TTF_Font* _ttfTextRenerer = nullptr;
+
+    int _windowWidth{};
+    int _windowHeight{};
+    int _textureWidth{};
+    int _textureHeight{};
+
+    uint32_t _previousFrameTime{0};
+    const uint32_t _fps{60};
+    const uint32_t _frameTargetTime{1000 / _fps};  //the time of one frame
+
     RenderMode _currentRenderMode = RenderMode::WIREFRAME;
     SDL_Color _renderModeTextColor = {255, 255, 255, 255};
-    int _textureWidth;
-    int _textureHeight;
-    std::vector<uint32_t> _meshTextureBuffer;
-    Timer _timer;
+
+    bool _isRunning = false;
+    bool _pause{false};
+    bool _enableFaceCulling{true};
 };

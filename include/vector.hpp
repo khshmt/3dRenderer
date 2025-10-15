@@ -96,21 +96,21 @@ public:
             _z = _z + otherVec.z();
     }
 
-    vector<T, N> operator+(vector<T, N>& other) {
+    vector<T, N> operator+(const vector<T, N>& other) const {
         if (N == 2)
             return {(_x + other.x()), (_y + other.y())};
         if (N == 3)
             return {(_x + other.x()), (_y + other.y()), (_z + other.z())};
     }
 
-    void Subtract(vector<T, N>& otherVec) {
+    void Subtract(const vector<T, N>& otherVec) {
         _x = _x - otherVec.x();
         _y = _y - otherVec.y();
         if (N == 3)
             _z = _z - otherVec.z();
     }
 
-    vector<T, N> operator-(vector<T, N>& other) {
+    vector<T, N> operator-(const vector<T, N>& other) const {
         if (N == 2)
             return {(_x - other.x()), (_y - other.y())};
         if (N == 3)
@@ -151,6 +151,16 @@ public:
         _y /= mag;
         if (N == 3)
             _z /= mag;
+    }
+
+    std::tuple<T, T> get2() {
+        if (N == 2)
+            return {_x, _y};
+    }
+
+    std::tuple<T, T, T> get3() {
+        if (N == 3)
+            return {_x, _y, _z};
     }
 
 private:
