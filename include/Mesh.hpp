@@ -24,7 +24,6 @@ struct Triangle {
     std::array<Matrix<float, 4, 1>, 3> points;
     std::array<vec2f_t, 3> text_coords;  // texture coordinates
     vec3f_t normal;
-    float avg_depth;
     uint32_t color;
 };
 

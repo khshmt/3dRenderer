@@ -72,6 +72,7 @@ bool Renderer::setupWindow(const std::string& obj_file_path) {
     }
     _trianglesToRender.reserve(_mesh.faces.size());
     _lastTrianglesToRender.reserve(_mesh.faces.size());
+    _zBuffer = std::vector<float>(sizeof(float) * _windowHeight * _windowWidth, 1.0);
     return objloaded;
 }
 
@@ -117,7 +118,45 @@ void Renderer::drawTexel(const vec2i_t& point, const std::vector<uint32_t>& text
     int tex_x = abs((int)(interpolated_u * _textureWidth)) % _textureWidth;
     int tex_y = abs((int)(interpolated_v * _textureHeight)) % _textureHeight;
 
-    drawPixel(point.x(), point.y(), texture[(_textureWidth * tex_y) + tex_x]);
+    // Adjust 1/w so the pixels that are closer to the camera have smaller values
+    interpolated_reciprocal_w = 1.0 - interpolated_reciprocal_w;
+
+    // Only draw the pixel if the depth value is less than the one previously stored in the z-buffer
+    if (interpolated_reciprocal_w < _zBuffer[(_windowWidth * point.y()) + point.x()]) {
+        // Draw a pixel at position (x,y) with the color that comes from the mapped texture
+        drawPixel(point.x(), point.y(), texture[(_textureWidth * tex_y) + tex_x]);
+
+        // Update the z-buffer value with the 1/w of this current pixel
+        _zBuffer[(_windowWidth * point.y()) + point.x()] = interpolated_reciprocal_w;
+    }
+}
+
+void Renderer::drawTrianglePixel(int x, int y, uint32_t color, const Matrix<float, 4, 1>& a,
+                       const Matrix<float, 4, 1>& b, const Matrix<float, 4, 1>& c) {
+    // Create three vec2 to find the interpolation
+    vec2f_t p = {(float)x, (float)y};
+    vec3f_t weights = barycentric_weights(vec2f_t{a.x(), a.y()}, vec2f_t{b.x(), b.y()},
+                                          vec2f_t{c.x(), c.y()}, p);
+
+    float alpha = weights.x();
+    float beta = weights.y();
+    float gamma = weights.z();
+
+    // Interpolate the value of 1/w for the current pixel
+    float interpolated_reciprocal_w =
+        (1 / a.w()) * alpha + (1 / b.w()) * beta + (1 / c.w()) * gamma;
+
+    // Adjust 1/w so the pixels that are closer to the camera have smaller values
+    interpolated_reciprocal_w = 1.0 - interpolated_reciprocal_w;
+
+    // Only draw the pixel if the depth value is less than the one previously stored in the z-buffer
+    if (interpolated_reciprocal_w < _zBuffer[(_windowWidth * y) + x]) {
+        // Draw a pixel at position (x,y) with a solid color
+        drawPixel(x, y, color);
+
+        // Update the z-buffer value with the 1/w of this current pixel
+        _zBuffer[(_windowWidth * y) + x] = interpolated_reciprocal_w;
+    }
 }
 
 vec3f_t Renderer::barycentric_weights(const vec2f_t& a, const vec2f_t& b, const vec2f_t& c,
@@ -274,69 +313,167 @@ void Renderer::rasterizeFlatTopTriangle(const vec2i_t& p0, const vec2i_t& p1, co
 //                         (x2,y2)
 //
 void Renderer::rasterizeTriangle(const Triangle& tri, uint32_t color) {
-    std::array<vec2i_t, 3> verts = {
-        vec2i_t{(int)tri.points[0].x(), (int)tri.points[0].y()},
-        vec2i_t{(int)tri.points[1].x(), (int)tri.points[1].y()},
-        vec2i_t{(int)tri.points[2].x(), (int)tri.points[2].y()},
-    };
+    //std::array<vec2i_t, 3> verts = {
+    //    vec2i_t{(int)tri.points[0].x(), (int)tri.points[0].y()},
+    //    vec2i_t{(int)tri.points[1].x(), (int)tri.points[1].y()},
+    //    vec2i_t{(int)tri.points[2].x(), (int)tri.points[2].y()},
+    //};
 
-    // Sort by y, where y0 < y1 < y2
-    std::sort(std::begin(verts), std::end(verts), [](auto& a, auto& b) { return a.y() < b.y(); });
+    //// Sort by y, where y0 < y1 < y2
+    //std::sort(std::begin(verts), std::end(verts), [](auto& a, auto& b) { return a.y() < b.y(); });
 
-    auto x0 = verts[0].x();
-    auto y0 = verts[0].y();
+    //auto x0 = verts[0].x();
+    //auto y0 = verts[0].y();
 
-    auto x1 = verts[1].x();
-    auto y1 = verts[1].y();
+    //auto x1 = verts[1].x();
+    //auto y1 = verts[1].y();
 
-    auto x2 = verts[2].x();
-    auto y2 = verts[2].y();
+    //auto x2 = verts[2].x();
+    //auto y2 = verts[2].y();
     
-    if (y1 == y2) {
-        // Draw flat-bottom triangle
-        rasterizeFlatBottomTriangle({x0, y0}, {x1, y1}, {x2, y2}, color);
-    } else if (y0 == y1) {
-        // Draw flat-top triangle
-        rasterizeFlatTopTriangle({x0, y0}, {x1, y1}, {x2, y2}, color);
-    } else {
-        // Calculate the new vertex (Mx,My) using triangle similarity
-        // Mx - x0      y1 - y0
-        // --------- =  ---------  We need Mx
-        //  x2 - x0     y2 - y0
-        float factor = float(y1 - y0) / float(y2 - y0);
+    //if (y1 == y2) {
+    //    // Draw flat-bottom triangle
+    //    rasterizeFlatBottomTriangle({x0, y0}, {x1, y1}, {x2, y2}, color);
+    //} else if (y0 == y1) {
+    //    // Draw flat-top triangle
+    //    rasterizeFlatTopTriangle({x0, y0}, {x1, y1}, {x2, y2}, color);
+    //} else {
+    //    // Calculate the new vertex (Mx,My) using triangle similarity
+    //    // Mx - x0      y1 - y0
+    //    // --------- =  ---------  We need Mx
+    //    //  x2 - x0     y2 - y0
+    //    float factor = float(y1 - y0) / float(y2 - y0);
 
-        float Mx = x0 + factor * (x2 - x0);
-        float My = y1;
+    //    float Mx = x0 + factor * (x2 - x0);
+    //    float My = y1;
 
-        // Draw flat-bottom triangle
-        rasterizeFlatBottomTriangle({x0, y0}, {x1, y1}, {(int)Mx, (int)My}, color);
-        // Draw flat-top triangle
-        rasterizeFlatTopTriangle({x1, y1}, {(int)Mx, (int)My}, {x2, y2}, color);
-    }
-}
-
-void Renderer::rasterizeTexturedTriangle(const Triangle& tri, const std::vector<uint32_t>& textureBuffer) {
-    std::array<std::pair<Matrix<int, 4, 1>, vec2f_t>, 3> verts = {
-        {{tri.points[0].toInt(), tri.text_coords[0]},
-         {tri.points[1].toInt(), tri.text_coords[1]},
-         {tri.points[2].toInt(), tri.text_coords[2]}}};
+    //    // Draw flat-bottom triangle
+    //    rasterizeFlatBottomTriangle({x0, y0}, {x1, y1}, {(int)Mx, (int)My}, color);
+    //    // Draw flat-top triangle
+    //    rasterizeFlatTopTriangle({x1, y1}, {(int)Mx, (int)My}, {x2, y2}, color);
+    //}
+    std::array<std::tuple<vec2i_t, vec2f_t, vec2f_t>, 3> verts = {
+        {{{(int)tri.points[0].x(), (int)tri.points[0].y()}, {tri.points[0].z(), tri.points[0].w()}, tri.text_coords[0]},
+         {{(int)tri.points[1].x(), (int)tri.points[1].y()}, {tri.points[1].z(), tri.points[1].w()}, tri.text_coords[0]},
+         {{(int)tri.points[2].x(), (int)tri.points[2].y()}, {tri.points[2].z(), tri.points[2].w()}, tri.text_coords[0]}}};
 
     // Sort by y, where y0 < y1 < y2
     std::sort(verts.begin(), verts.end(),
-              [](auto& a, auto& b) { return a.first.y() < b.first.y(); });
+              [](auto& a, auto& b) { return std::get<0>(a).y() < std::get<0>(b).y(); });
 
     // p = point, t = texture coordinate
-    auto& [p0, t0] = verts[0];
-    auto& [p1, t1] = verts[1];
-    auto& [p2, t2] = verts[2];
+    auto& [p0xy, p0zw, t0] = verts[0];
+    auto& [p1xy, p1zw, t1] = verts[1];
+    auto& [p2xy, p2zw, t2] = verts[2];
 
     auto [u0, v0] = t0.get2();
     auto [u1, v1] = t1.get2();
     auto [u2, v2] = t2.get2();
 
-    auto [x0, y0, z0, w0] = p0.get4();
-    auto [x1, y1, z1, w1] = p1.get4();
-    auto [x2, y2, z2, w2] = p2.get4();
+    auto [x0, y0] = p0xy.get2();
+    auto [z0, w0] = p0zw.get2();
+
+    auto [x1, y1] = p1xy.get2();
+    auto [z1, w1] = p1zw.get2();
+
+    auto [x2, y2] = p2xy.get2();
+    auto [z2, w2] = p2zw.get2();
+
+    // flip the V Component to account for inverted UV coordinates
+    v0 = 1.0 - v0;
+    v1 = 1.0 - v1;
+    v2 = 1.0 - v2;
+
+    Matrix<float, 4, 1> point_a = {(float)x0, (float)y0, (float)z0, (float)w0};
+    Matrix<float, 4, 1> point_b = {(float)x1, (float)y1, (float)z1, (float)w1};
+    Matrix<float, 4, 1> point_c = {(float)x2, (float)y2, (float)z2, (float)w2};
+    vec2f_t a_uv = {u0, v0};
+    vec2f_t b_uv = {u1, v1};
+    vec2f_t c_uv = {u2, v2};
+
+    ///////////////////////////////////////////////////////
+    // Render the upper part of the triangle (flat-bottom)
+    ///////////////////////////////////////////////////////
+    float inv_slope_1 = 0;
+    float inv_slope_2 = 0;
+
+    if (y1 - y0 != 0)
+        inv_slope_1 = (float)(x1 - x0) / abs(y1 - y0);
+    if (y2 - y0 != 0)
+        inv_slope_2 = (float)(x2 - x0) / abs(y2 - y0);
+
+    if (y1 - y0 != 0) {
+        for (int y = y0; y <= y1; y++) {
+            int x_start = x1 + (y - y1) * inv_slope_1;
+            int x_end = x0 + (y - y0) * inv_slope_2;
+
+            if (x_end < x_start) {
+                std::swap(x_start, x_end);  // swap if x_start is to the right of x_end
+            }
+
+            for (int x = x_start; x < x_end; x++) {
+                // Draw our pixel with the color that comes from the texture
+                drawTrianglePixel(x, y, color, point_a, point_b, point_c);
+            }
+        }
+    }
+
+    ///////////////////////////////////////////////////////
+    // Render the bottom part of the triangle (flat-top)
+    ///////////////////////////////////////////////////////
+    inv_slope_1 = 0;
+    inv_slope_2 = 0;
+
+    if (y2 - y1 != 0)
+        inv_slope_1 = (float)(x2 - x1) / abs(y2 - y1);
+    if (y2 - y0 != 0)
+        inv_slope_2 = (float)(x2 - x0) / abs(y2 - y0);
+
+    if (y2 - y1 != 0) {
+        for (int y = y1; y <= y2; y++) {
+            int x_start = x1 + (y - y1) * inv_slope_1;
+            int x_end = x0 + (y - y0) * inv_slope_2;
+
+            if (x_end < x_start) {
+                std::swap(x_start, x_end);  // swap if x_start is to the right of x_end
+            }
+
+            for (int x = x_start; x < x_end; x++) {
+                // Draw our pixel with the color that comes from the texture
+                drawTrianglePixel(x, y, color, point_a, point_b, point_c);
+            }
+        }
+    }
+}
+
+void Renderer::rasterizeTexturedTriangle(const Triangle& tri, const std::vector<uint32_t>& textureBuffer) {
+    std::array<std::tuple<vec2i_t, vec2f_t, vec2f_t>, 3> verts = {
+        {{{(int)tri.points[0].x(), (int)tri.points[0].y()}, {tri.points[0].z(), tri.points[0].w()}, tri.text_coords[0]},
+         {{(int)tri.points[1].x(), (int)tri.points[1].y()}, {tri.points[1].z(), tri.points[1].w()}, tri.text_coords[1]},
+         {{(int)tri.points[2].x(), (int)tri.points[2].y()}, {tri.points[2].z(), tri.points[2].w()}, tri.text_coords[2]}}};
+
+    // Sort by y, where y0 < y1 < y2
+    std::sort(verts.begin(), verts.end(),
+              [](auto& a, auto& b) { return std::get<0>(a).y() < std::get<0>(b).y(); });
+
+    // p = point, t = texture coordinate
+    auto& [p0xy, p0zw, t0] = verts[0];
+    auto& [p1xy, p1zw, t1] = verts[1];
+    auto& [p2xy, p2zw, t2] = verts[2];
+
+    auto [u0, v0] = t0.get2();
+    auto [u1, v1] = t1.get2();
+    auto [u2, v2] = t2.get2();
+
+    auto [x0, y0] = p0xy.get2();
+    auto [z0, w0] = p0zw.get2();
+
+    auto [x1, y1] = p1xy.get2();
+    auto [z1, w1] = p1zw.get2();
+
+    auto [x2, y2] = p2xy.get2();
+    auto [z2, w2] = p2zw.get2();
+
 
     // flip the V Component to account for inverted UV coordinates
     v0 = 1.0 - v0;
@@ -590,9 +727,9 @@ void Renderer::update() {
         //_mesh.translation.x() += 0.04;
         _mesh.translation.z() = -_cameraPosition.z();
         // Roation
-        _mesh.rotation.x() += 0.01;
+        //_mesh.rotation.x() += 0.01;
         _mesh.rotation.y() += 0.01;
-        _mesh.rotation.z() += 0.01;
+        //_mesh.rotation.z() += 0.01;
 
         _worldMatrix.setEye();
         _worldMatrix.setScale(_mesh.scale.x(), _mesh.scale.y(), _mesh.scale.z());
@@ -640,16 +777,11 @@ void Renderer::update() {
                 projected_triangle.text_coords[1] = face.b_uv;
                 projected_triangle.text_coords[2] = face.c_uv;
                 
-                projected_triangle.avg_depth = (face_vertices[0].z() + face_vertices[1].z() + face_vertices[2].z()) / 3.0f;
                 projected_triangle.normal = face.normal;
                 projected_triangle.color = face.color;
             }
             _trianglesToRender.emplace_back(projected_triangle);
         }
-        // sort triangles from back to front based on average depth
-        // C++ std::sort is an introspective sort algorithm, complexity O(n log(n))
-        std::sort(std::begin(_trianglesToRender), std::end(_trianglesToRender),
-                  [](const Triangle& t1, const Triangle& t2) { return t1.avg_depth > t2.avg_depth; });
         // store the last frame triangles, incase of pause is hit we can still render the last frame
         _lastTrianglesToRender = std::move(_trianglesToRender);
     }
@@ -725,6 +857,7 @@ void Renderer::render(double timer_value) {
 
     SDL_RenderPresent(_rendererPtr.get());
     _trianglesToRender.clear();
+    _zBuffer = std::vector<float>(sizeof(float) * _windowHeight * _windowWidth, 1.0);
     _timer.endWatch();
 }
 

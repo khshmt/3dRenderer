@@ -65,6 +65,8 @@ private:
     void drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos, bool enabledMode);
     void drawGrid();
     void drawPixel(int x, int y, uint32_t color);
+    void drawTrianglePixel(int x, int y, uint32_t color, const Matrix<float, 4, 1>& point_a,
+                           const Matrix<float, 4, 1>& point_b, const Matrix<float, 4, 1>& point_c);
     void drawTexel(const vec2i_t& point, const std::vector<uint32_t>& texture,
                    const Matrix<float, 4, 1>& a, const Matrix<float, 4, 1>& b,
                    const Matrix<float, 4, 1>& c, const vec2f_t& uv0, const vec2f_t& uv1,
@@ -102,6 +104,7 @@ private:
     std::vector<Triangle> _lastTrianglesToRender;
     std::vector<uint32_t> _colorBuffer;
     std::vector<uint32_t> _meshTextureBuffer;
+    std::vector<float> _zBuffer;
 
     std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> _windowPtr =
         std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>(nullptr, SDL_DestroyWindow);
