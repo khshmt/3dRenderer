@@ -84,6 +84,7 @@ private:
                                      uint32_t color);
     void rasterizeFlatTopTriangle(const vec2i_t& p0, const vec2i_t& p1, const vec2i_t& p2,
                                   uint32_t color);
+    Matrix<float, 4, 4> lookAt(const vec3f_t& eye, const vec3f_t& target, const vec3f_t& up);
     void renderColorBuffer();
     void clearColorBuffer(uint32_t color);
     void normalizeModel(std::vector<vec3f_t>& vertices);
@@ -101,6 +102,7 @@ private:
 
     Matrix<float, 4, 4> _worldMatrix;
     Matrix<float, 4, 4> _persProjMatrix;  // perspective projection matrix
+    Matrix<float, 4, 4> _viewMatrix;      // view/camera matrix
 
     std::vector<Triangle> _trianglesToRender;
     std::vector<Triangle> _lastTrianglesToRender;
@@ -118,7 +120,10 @@ private:
     std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)> _colorBufferTexturePtr =
         std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(nullptr, SDL_DestroyTexture);
 
-    vec3f_t _cameraPosition = {0, 0, -5};
+    struct Camera {
+        vec3f_t _position = {0.0f, 0.0f, -2.0f};
+        vec3f_t _direction = {0.0f, 0.0f, 0.0f};
+    } _camera;
     vec3f_t _lightDirection = {0, 0, 1};
 
     TTF_Font* _ttfTextRenerer = nullptr;

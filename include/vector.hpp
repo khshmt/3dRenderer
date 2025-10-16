@@ -132,13 +132,13 @@ public:
     }
 
     // cross product
-    vector<T, 3> operator^(vector<T, 3>& other) {
+    vector<T, 3> operator^(const vector<T, 3>& other) const {
         return {(_y * other.z() - _z * other.y()), (_z * other.x() - _x * other.z()),
                 (_x * other.y() - _y * other.x())};
     }
 
     // dot product
-    float operator*(vector<T, N>& other) {
+    float operator*(const vector<T, N>& other) const {
         if (N == 2)
             return _x * other.x() + _y * other.y();
         if (N == 3)

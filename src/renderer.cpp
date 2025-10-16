@@ -543,6 +543,25 @@ void Renderer::rasterizeTexturedTriangle(const Triangle& tri, const std::vector<
 
 }
 
+Matrix<float, 4, 4> Renderer::lookAt(const vec3f_t& eye, const vec3f_t& target, const vec3f_t& up) {
+    auto z = target - eye;
+    z.normalize();
+
+    auto x = up ^ z;
+    x.normalize();
+
+    auto y = z ^ x;
+
+    // | x.x   x.y   x.z  -dot(x,eye) |
+    // | y.x   y.y   y.z  -dot(y,eye) |
+    // | z.x   z.y   z.z  -dot(z,eye) |
+    // |   0     0     0            1 |
+    return {x.x(), x.y(), x.z(), -(x * eye), 
+            y.x(), y.y(), y.z(), -(y * eye), 
+            z.x(), z.y(), z.z(), -(z * eye),
+                0,     0,     0,          1};
+}
+
 void Renderer::renderColorBuffer() {
     SDL_UpdateTexture(_colorBufferTexturePtr.get(), nullptr, _colorBuffer.data(),
                       (int)(sizeof(uint32_t) * _windowWidth)  //Pitch ==> size of one row in bytes
@@ -603,10 +622,10 @@ void Renderer::processInput() {
             case SDL_MOUSEWHEEL:
                 if (event.wheel.y > 0) {
                     // Scroll up
-                    _cameraPosition.z()++;  // increase your int member variable
+                    _camera._position.z()++;  // increase your int member variable
                 } else if (event.wheel.y < 0) {
                     // Scroll down
-                    _cameraPosition.z()--;  // decrease your int member variable
+                    _camera._position.z()--;  // decrease your int member variable
                 }
                 break;
 
@@ -713,20 +732,28 @@ void Renderer::update() {
 
     // this technique is better for consistent frame rate, and no high CPU usage observed on windows
     while (!SDL_TICKS_PASSED(SDL_GetTicks(), _previousFrameTime + _frameTargetTime)) {}
-    _previousFrameTime = SDL_GetTicks();
 
     if (!_pause) {
+        auto delta_time = (SDL_GetTicks() - _previousFrameTime) / 1000.0;
+        _previousFrameTime = SDL_GetTicks();
         // Scale
-        //_mesh.scale.x() += 0.02;
-        //_mesh.scale.y() += 0.02;
+        //_mesh.scale.x() += (0.02 * delta_time);
+        //_mesh.scale.y() += (0.02 * delta_time);
         // Translation
-        //_mesh.translation.x() += 0.04;
-        _mesh.translation.z() = -_cameraPosition.z();
+        //_mesh.translation.x() += (0.04 * delta_time);
+        _mesh.translation.z() = -_camera._position.z();
         // Roation
-        //_mesh.rotation.x() += 0.01;
-        _mesh.rotation.y() += 0.01;
-        //_mesh.rotation.z() += 0.01;
+        _mesh.rotation.x() += (0.1 * delta_time);
+        _mesh.rotation.y() += (0.1 * delta_time);
+        _mesh.rotation.z() += (0.1 * delta_time);
 
+        _camera._position.x() += (0.8 * delta_time);
+        _camera._position.y() += (0.8 * delta_time);
+
+        //create the view matrix
+        _viewMatrix = lookAt(_camera._position, {0,0,4}, {0,1,0});
+
+        // create the world matrix
         _worldMatrix.setEye();
         _worldMatrix.setScale(_mesh.scale.x(), _mesh.scale.y(), _mesh.scale.z());
         _worldMatrix.setTranslation(_mesh.translation.x(), _mesh.translation.y(),
@@ -743,6 +770,7 @@ void Renderer::update() {
             for (auto& vertex : face_vertices) {
                 Matrix<float, 4, 1> vec =
                     _worldMatrix * Matrix<float, 4, 1>{vertex.x(), vertex.y(), vertex.z(), 1};
+                vec = _viewMatrix * vec;
                 vertex.x() = vec(0, 0);
                 vertex.y() = vec(1, 0);
                 vertex.z() = vec(2, 0);
@@ -930,7 +958,7 @@ std::pair<bool, vec3f_t> Renderer::CullingCheck(const std::array<vec3f_t, 3>& fa
     vec_face_normal.normalize();  
 
     //step3 find the camera ray (vector between camera origin and a point in the triangle)
-    auto vec_camera_ray = _cameraPosition - vec_a;
+    auto vec_camera_ray = vec3f_t{0.0, 0.0, 0.0} - vec_a;
 
     //step4 check how aligned the camera ray with face normal, if angle is less than 90 degree then we are looking at the back face
     if (vec_face_normal * vec_camera_ray < 0)  // zero means cos(90), less than zero means more than cos(90) degree angle
