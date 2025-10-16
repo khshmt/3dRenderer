@@ -123,7 +123,7 @@ public:
     }
 
     Matrix<T, M, N> getRotationMatrix(T alpha, T beta, T gamma) const {
-        // totation matrices follows the right-hand rule (counter-clockwise rotation)
+        // rotation matrices follows the right-hand rule (counter-clockwise rotation)
         auto cos_alpha = cos(alpha);
         auto sin_alpha = sin(alpha);
         auto cos_beta = cos(beta);

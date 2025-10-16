@@ -593,7 +593,7 @@ void Renderer::processInput() {
                     case SDLK_c:
                         _enableFaceCulling = true;
                         break;
-                    case SDLK_d:
+                    case SDLK_x:
                         _enableFaceCulling = false;
                         break;
                     case SDLK_1:
@@ -614,21 +614,30 @@ void Renderer::processInput() {
                     case SDLK_6:
                         _currentRenderMode = RenderMode::TEXTURE_WIREFRAME;
                         break;
+                    case SDLK_UP:
+                        _camera._position.y() += 1.0 * _deltaTime;
+                        break;
+                    case SDLK_DOWN:
+                        _camera._position.y() -= 1.0 * _deltaTime;
+                        break;
+                    case SDLK_a:
+                        _camera._yaw += 1.0 * _deltaTime;
+                        break;
+                    case SDLK_d:
+                        _camera._yaw -= 1.0 * _deltaTime;
+                        break;
+                    case SDLK_w:
+                        _camera._forwardVelocity = _camera._direction * 2.0;
+                        _camera._position = _camera._position + _camera._forwardVelocity;
+                        break;
+                    case SDLK_s:
+                        _camera._forwardVelocity = _camera._direction * 2.0;
+                        _camera._position = _camera._position - _camera._forwardVelocity;
+                        break;
                     default:
                         break;
                 }
                 break;
-
-            case SDL_MOUSEWHEEL:
-                if (event.wheel.y > 0) {
-                    // Scroll up
-                    _camera._position.z()++;  // increase your int member variable
-                } else if (event.wheel.y < 0) {
-                    // Scroll down
-                    _camera._position.z()--;  // decrease your int member variable
-                }
-                break;
-
             default:
                 break;
         }
@@ -734,24 +743,27 @@ void Renderer::update() {
     while (!SDL_TICKS_PASSED(SDL_GetTicks(), _previousFrameTime + _frameTargetTime)) {}
 
     if (!_pause) {
-        auto delta_time = (SDL_GetTicks() - _previousFrameTime) / 1000.0;
+        _deltaTime = (SDL_GetTicks() - _previousFrameTime) / 1000.0;
         _previousFrameTime = SDL_GetTicks();
         // Scale
-        //_mesh.scale.x() += (0.02 * delta_time);
-        //_mesh.scale.y() += (0.02 * delta_time);
+        //_mesh.scale.x() += (0.02 * _deltaTime);
+        //_mesh.scale.y() += (0.02 * _deltaTime);
         // Translation
-        //_mesh.translation.x() += (0.04 * delta_time);
+        //_mesh.translation.x() += (0.04 * _deltaTime);
         _mesh.translation.z() = -_camera._position.z();
         // Roation
-        _mesh.rotation.x() += (0.1 * delta_time);
-        _mesh.rotation.y() += (0.1 * delta_time);
-        _mesh.rotation.z() += (0.1 * delta_time);
-
-        _camera._position.x() += (0.8 * delta_time);
-        _camera._position.y() += (0.8 * delta_time);
+        _mesh.rotation.x() += (0.0 * _deltaTime);
+        _mesh.rotation.y() += (0.0 * _deltaTime);
+        _mesh.rotation.z() += (0.0 * _deltaTime);
 
         //create the view matrix
-        _viewMatrix = lookAt(_camera._position, {0,0,4}, {0,1,0});
+        Matrix<float, 4, 4> cameraYawRotation;
+        cameraYawRotation.setRotation(0.f, _camera._yaw, 0.f);
+        auto direction = cameraYawRotation * Matrix<float, 4, 1>{0.f, 0.f, 1.f, 1.f};
+        _camera._direction = {direction.x(), direction.y(), direction.z()};
+
+        auto target = _camera._position + _camera._direction;
+        _viewMatrix = lookAt(_camera._position, {target.x(), target.y(), target.z()}, {0.f, 1.f, 0.f});
 
         // create the world matrix
         _worldMatrix.setEye();

@@ -104,6 +104,13 @@ private:
     Matrix<float, 4, 4> _persProjMatrix;  // perspective projection matrix
     Matrix<float, 4, 4> _viewMatrix;      // view/camera matrix
 
+    struct Camera {
+        vec3f_t _position = {0.0f, 0.0f, -2.0f};
+        vec3f_t _direction = {0.0f, 0.0f, 1.0f};
+        vec3f_t _forwardVelocity = {0.0f, 0.0f, 0.0f};
+        float _yaw{0.0};  // roation around y axis ofthe camera
+    } _camera;
+
     std::vector<Triangle> _trianglesToRender;
     std::vector<Triangle> _lastTrianglesToRender;
     std::vector<uint32_t> _colorBuffer;
@@ -120,11 +127,8 @@ private:
     std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)> _colorBufferTexturePtr =
         std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(nullptr, SDL_DestroyTexture);
 
-    struct Camera {
-        vec3f_t _position = {0.0f, 0.0f, -2.0f};
-        vec3f_t _direction = {0.0f, 0.0f, 0.0f};
-    } _camera;
-    vec3f_t _lightDirection = {0, 0, 1};
+
+    vec3f_t _lightDirection = {0.0, 0.0, 1.0};
 
     TTF_Font* _ttfTextRenerer = nullptr;
 
@@ -136,6 +140,7 @@ private:
     uint32_t _previousFrameTime{0};
     const uint32_t _fps{60};
     const uint32_t _frameTargetTime{1000 / _fps};  //the time of one frame
+    float _deltaTime{};
 
     RenderMode _currentRenderMode = RenderMode::WIREFRAME;
     SDL_Color _renderModeTextColor = {255, 255, 255, 255};

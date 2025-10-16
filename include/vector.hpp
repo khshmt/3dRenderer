@@ -145,6 +145,13 @@ public:
             return _x * other.x() + _y * other.y() + _z * other.z();
     }
 
+    vector<T, N> operator*(T scale_value) const {
+        if (N == 2)
+            return {_x * scale_value, _y * scale_value};
+        if (N == 3)
+            return {_x * scale_value, _y * scale_value, _z * scale_value};
+    }
+
     void normalize() {
         auto mag = this->magnitude();
         _x /= mag;
