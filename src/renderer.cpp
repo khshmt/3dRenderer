@@ -52,7 +52,7 @@ bool Renderer::initializeWindow(bool fullscreen) {
 }
 
 bool Renderer::setupWindow(const std::string& obj_file_path) {
-    _colorBuffer.reserve(_windowWidth * _windowHeight);
+    _colorBuffer.resize(_windowWidth * _windowHeight);
 
     if (_colorBufferTexturePtr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(
             SDL_CreateTexture(_rendererPtr.get(), SDL_PIXELFORMAT_ABGR8888,
@@ -70,9 +70,10 @@ bool Renderer::setupWindow(const std::string& obj_file_path) {
     if (std::filesystem::exists(png_file_path)) {
         loadPNGTextureData(png_file_path.string());
     }
-    _trianglesToRender.reserve(_mesh.faces.size());
-    _lastTrianglesToRender.reserve(_mesh.faces.size());
-    _zBuffer = std::vector<float>(sizeof(float) * _windowHeight * _windowWidth, 1.0);
+    _trianglesToRender.resize(_mesh.faces.size());
+    _lastTrianglesToRender.resize(_mesh.faces.size());
+    _zBuffer.resize(_windowWidth * _windowHeight);
+    std::fill(std::begin(_zBuffer), std::end(_zBuffer), 1.0);
     return objloaded;
 }
 
@@ -312,46 +313,49 @@ void Renderer::rasterizeFlatTopTriangle(const vec2i_t& p0, const vec2i_t& p1, co
 //                           \
 //                         (x2,y2)
 //
-void Renderer::rasterizeTriangle(const Triangle& tri, uint32_t color) {
-    //std::array<vec2i_t, 3> verts = {
-    //    vec2i_t{(int)tri.points[0].x(), (int)tri.points[0].y()},
-    //    vec2i_t{(int)tri.points[1].x(), (int)tri.points[1].y()},
-    //    vec2i_t{(int)tri.points[2].x(), (int)tri.points[2].y()},
-    //};
+void Renderer::rasterizeTriangle1(const Triangle& tri, uint32_t color)  {
+    std::array<vec2i_t, 3> verts = {
+        vec2i_t{(int)tri.points[0].x(), (int)tri.points[0].y()},
+        vec2i_t{(int)tri.points[1].x(), (int)tri.points[1].y()},
+        vec2i_t{(int)tri.points[2].x(), (int)tri.points[2].y()},
+    };
 
-    //// Sort by y, where y0 < y1 < y2
-    //std::sort(std::begin(verts), std::end(verts), [](auto& a, auto& b) { return a.y() < b.y(); });
+    // Sort by y, where y0 < y1 < y2
+    std::sort(std::begin(verts), std::end(verts), [](auto& a, auto& b) { return a.y() < b.y(); });
 
-    //auto x0 = verts[0].x();
-    //auto y0 = verts[0].y();
+    auto x0 = verts[0].x();
+    auto y0 = verts[0].y();
 
-    //auto x1 = verts[1].x();
-    //auto y1 = verts[1].y();
+    auto x1 = verts[1].x();
+    auto y1 = verts[1].y();
 
-    //auto x2 = verts[2].x();
-    //auto y2 = verts[2].y();
-    
-    //if (y1 == y2) {
-    //    // Draw flat-bottom triangle
-    //    rasterizeFlatBottomTriangle({x0, y0}, {x1, y1}, {x2, y2}, color);
-    //} else if (y0 == y1) {
-    //    // Draw flat-top triangle
-    //    rasterizeFlatTopTriangle({x0, y0}, {x1, y1}, {x2, y2}, color);
-    //} else {
-    //    // Calculate the new vertex (Mx,My) using triangle similarity
-    //    // Mx - x0      y1 - y0
-    //    // --------- =  ---------  We need Mx
-    //    //  x2 - x0     y2 - y0
-    //    float factor = float(y1 - y0) / float(y2 - y0);
+    auto x2 = verts[2].x();
+    auto y2 = verts[2].y();
 
-    //    float Mx = x0 + factor * (x2 - x0);
-    //    float My = y1;
+    if (y1 == y2) {
+        // Draw flat-bottom triangle
+        rasterizeFlatBottomTriangle({x0, y0}, {x1, y1}, {x2, y2}, color);
+    } else if (y0 == y1) {
+        // Draw flat-top triangle
+        rasterizeFlatTopTriangle({x0, y0}, {x1, y1}, {x2, y2}, color);
+    } else {
+        // Calculate the new vertex (Mx,My) using triangle similarity
+        // Mx - x0      y1 - y0
+        // --------- =  ---------  We need Mx
+        //  x2 - x0     y2 - y0
+        float factor = float(y1 - y0) / float(y2 - y0);
 
-    //    // Draw flat-bottom triangle
-    //    rasterizeFlatBottomTriangle({x0, y0}, {x1, y1}, {(int)Mx, (int)My}, color);
-    //    // Draw flat-top triangle
-    //    rasterizeFlatTopTriangle({x1, y1}, {(int)Mx, (int)My}, {x2, y2}, color);
-    //}
+        float Mx = x0 + factor * (x2 - x0);
+        float My = y1;
+
+        // Draw flat-bottom triangle
+        rasterizeFlatBottomTriangle({x0, y0}, {x1, y1}, {(int)Mx, (int)My}, color);
+        // Draw flat-top triangle
+        rasterizeFlatTopTriangle({x1, y1}, {(int)Mx, (int)My}, {x2, y2}, color);
+    }
+}
+
+void Renderer::rasterizeTriangle2(const Triangle& tri, uint32_t color) {
     std::array<std::tuple<vec2i_t, vec2f_t, vec2f_t>, 3> verts = {
         {{{(int)tri.points[0].x(), (int)tri.points[0].y()}, {tri.points[0].z(), tri.points[0].w()}, tri.text_coords[0]},
          {{(int)tri.points[1].x(), (int)tri.points[1].y()}, {tri.points[1].z(), tri.points[1].w()}, tri.text_coords[0]},
@@ -391,9 +395,7 @@ void Renderer::rasterizeTriangle(const Triangle& tri, uint32_t color) {
     vec2f_t b_uv = {u1, v1};
     vec2f_t c_uv = {u2, v2};
 
-    ///////////////////////////////////////////////////////
-    // Render the upper part of the triangle (flat-bottom)
-    ///////////////////////////////////////////////////////
+    // Render flat-bottom triangle
     float inv_slope_1 = 0;
     float inv_slope_2 = 0;
 
@@ -418,9 +420,7 @@ void Renderer::rasterizeTriangle(const Triangle& tri, uint32_t color) {
         }
     }
 
-    ///////////////////////////////////////////////////////
-    // Render the bottom part of the triangle (flat-top)
-    ///////////////////////////////////////////////////////
+    //Render flat-top triangle
     inv_slope_1 = 0;
     inv_slope_2 = 0;
 
@@ -552,11 +552,7 @@ void Renderer::renderColorBuffer() {
 }
 
 void Renderer::clearColorBuffer(uint32_t color) {
-    for (uint32_t y{0}; y < _windowHeight; ++y) {
-        for (uint32_t x{0}; x < _windowWidth; ++x) {
-            _colorBuffer[(_windowWidth * y) + x] = color;
-        }
-    }
+    std::fill(std::begin(_colorBuffer), std::end(_colorBuffer), color);
 }
 
 void Renderer::processInput() {
@@ -780,10 +776,10 @@ void Renderer::update() {
                 projected_triangle.normal = face.normal;
                 projected_triangle.color = face.color;
             }
-            _trianglesToRender.emplace_back(projected_triangle);
+            _trianglesToRender.push_back(projected_triangle);
         }
         // store the last frame triangles, incase of pause is hit we can still render the last frame
-        _lastTrianglesToRender = std::move(_trianglesToRender);
+        _lastTrianglesToRender = _trianglesToRender;
     }
     _timer.endWatch();
 }
@@ -812,7 +808,7 @@ void Renderer::render(double timer_value) {
         if (raster) {
             auto light_intensity_factor = -(triangle.normal * _lightDirection);
             auto color = calculateLightIntensityColor(triangle.color, light_intensity_factor);
-            rasterizeTriangle(triangle, color);
+            rasterizeTriangle2(triangle, color);
             wireframe_color = 0xFF000000;  // black
         }
         if (textured && !_meshTextureBuffer.empty()) {
@@ -857,7 +853,7 @@ void Renderer::render(double timer_value) {
 
     SDL_RenderPresent(_rendererPtr.get());
     _trianglesToRender.clear();
-    _zBuffer = std::vector<float>(sizeof(float) * _windowHeight * _windowWidth, 1.0);
+    std::fill(_zBuffer.begin(), _zBuffer.end(), 1.0f);
     _timer.endWatch();
 }
 

@@ -5,6 +5,7 @@
 #include <thread>
 #include <vector>
 #include <string>
+#include <execution>
 // internal
 #include "Mesh.hpp"
 #include "timer.hpp"
@@ -77,7 +78,8 @@ private:
     void drawLine(int x0, int y0, int x1, int y1, uint32_t color);
     void drawTriangle(const Triangle& tri, uint32_t color);
     void rasterizeTexturedTriangle(const Triangle& tri, const std::vector<uint32_t>& textureBuffer);
-    void rasterizeTriangle(const Triangle& tri, uint32_t color);
+    void rasterizeTriangle1(const Triangle& tri, uint32_t color);
+    void rasterizeTriangle2(const Triangle& tri, uint32_t color);
     void rasterizeFlatBottomTriangle(const vec2i_t& p0, const vec2i_t& p1, const vec2i_t& p2,
                                      uint32_t color);
     void rasterizeFlatTopTriangle(const vec2i_t& p0, const vec2i_t& p1, const vec2i_t& p2,
@@ -105,6 +107,7 @@ private:
     std::vector<uint32_t> _colorBuffer;
     std::vector<uint32_t> _meshTextureBuffer;
     std::vector<float> _zBuffer;
+    std::vector<float> _zBufferAlternative;
 
     std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> _windowPtr =
         std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>(nullptr, SDL_DestroyWindow);
@@ -135,4 +138,8 @@ private:
     bool _isRunning = false;
     bool _pause{false};
     bool _enableFaceCulling{true};
+    // TODO:
+    //bool _roll{true};
+    //bool _pitch{true};
+    //bool _yaw{true};
 };
