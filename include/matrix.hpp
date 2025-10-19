@@ -8,7 +8,7 @@
 template<typename T, size_t M, size_t N>
 class Matrix {
 public:
-    Matrix() : _rows(M), _cols(N), _data(M * N, T{}) {
+    Matrix() : _rows(M), _cols(N) {
         if constexpr (M == N) {
             setEye();
         }
@@ -104,11 +104,11 @@ public:
     }
     void setTranslation(const T& tx, const T& ty, const T& tz) {
         if constexpr (M >= 4 && N >= 4) {
-            Matrix<T, 4, 4> T;
-            T(0, 3) = tx;
-            T(1, 3) = ty;
-            T(2, 3) = tz;
-            *this = T * *this;  // order of multiplication matters
+            Matrix<T, 4, 4> Trans;
+            Trans(0, 3) = tx;
+            Trans(1, 3) = ty;
+            Trans(2, 3) = tz;
+            *this = Trans * *this;  // order of multiplication matters
         } else {
             throw std::invalid_argument("Matrix must be at least 4x4 to set translation.");
         }
@@ -176,19 +176,19 @@ public:
     }
 
 private:
-    template <typename T, size_t M, size_t K, size_t N>
-    friend Matrix<T, M, N> operator*(const Matrix<T, M, K>& a, const Matrix<T, K, N>& b);
+    template <typename U, size_t m, size_t K, size_t n>
+    friend Matrix<U, m, n> operator*(const Matrix<U, m, K>& a, const Matrix<U, K, n>& b);
     size_t _rows;
     size_t _cols;
     std::array<T, M * N> _data;
 };
 
-template <typename T, size_t M, size_t K, size_t N>
-Matrix<T, M, N> operator*(const Matrix<T, M, K>& a, const Matrix<T, K, N>& b) {
-    Matrix<T, M, N> result;
-    for (size_t i = 0; i < M; i++) {
-        for (size_t j = 0; j < N; j++) {
-            result(i, j) = T{};
+template <typename U, size_t m, size_t K, size_t n>
+Matrix<U, m, n> operator*(const Matrix<U, m, K>& a, const Matrix<U, K, n>& b) {
+    Matrix<U, m, n> result;
+    for (size_t i = 0; i < m; i++) {
+        for (size_t j = 0; j < n; j++) {
+            result(i, j) = U{};
             for (size_t k = 0; k < K; k++) {
                 result(i, j) += a(i, k) * b(k, j);
             }
