@@ -63,7 +63,12 @@ bool Renderer::setupWindow(const std::string& obj_file_path) {
         return false;
     }
 
-    constructProjectionMatrix(60.0, static_cast<float>(_windowHeight) / _windowWidth, 0.1, 100.0);
+    auto fov{60.f}; //60 degrees
+    auto aspectRatio{static_cast<float>(_windowHeight) / _windowWidth};
+    auto zNear{0.1f};
+    auto zFar{100.f};
+    constructProjectionMatrix(fov, aspectRatio, zNear, zFar);
+    initializeFrustumPlanes(fov * (M_PI / 180.f), zNear, zFar);
 
     auto objloaded = loadObjFileData(obj_file_path);
     auto png_file_path = std::filesystem::path(obj_file_path).replace_extension(".png");
@@ -662,15 +667,105 @@ void Renderer::constructProjectionMatrix(float fov, float aspectRatio, float zne
     _persProjMatrix(3, 3) = 0.0f;
 }
 
-Matrix<float, 4, 1> Renderer::project(vec3f_t& point) { 
+void Renderer::initializeFrustumPlanes(float fov, float zNear, float zFar) {
+    auto cosHalfFov = cos(fov / 2);
+    auto sinHalfFov = sin(fov / 2);
+    frustumPlanes[FRUSTUMPLANES::LEFT_PLANE]._point = {0.f, 0.f, 0.f};
+    frustumPlanes[FRUSTUMPLANES::LEFT_PLANE]._normal = {cosHalfFov, 0.f, sinHalfFov};
+
+    frustumPlanes[FRUSTUMPLANES::RIGHT_PLANE]._point = {0.f, 0.f, 0.f};
+    frustumPlanes[FRUSTUMPLANES::RIGHT_PLANE]._normal = {-cosHalfFov, 0.f, sinHalfFov};    
+
+    frustumPlanes[FRUSTUMPLANES::TOP_PLANE]._point = {0.f, 0.f, 0.f};
+    frustumPlanes[FRUSTUMPLANES::TOP_PLANE]._normal = {0.f, -cosHalfFov, sinHalfFov};
+
+    frustumPlanes[FRUSTUMPLANES::BOTTOM_PLANE]._point = {0.f, 0.f, 0.f};
+    frustumPlanes[FRUSTUMPLANES::BOTTOM_PLANE]._normal = {0.f, cosHalfFov, sinHalfFov};
+
+    frustumPlanes[FRUSTUMPLANES::NEAR_PLANE]._point = {0.f, 0.f, zNear};
+    frustumPlanes[FRUSTUMPLANES::NEAR_PLANE]._normal = {0.f, 0.f, 1.f};
+
+    frustumPlanes[FRUSTUMPLANES::FAR_PLANE]._point = {0.f, 0.f, zFar};
+    frustumPlanes[FRUSTUMPLANES::FAR_PLANE]._normal = {0.f, 0.f, -1.f};  
+}
+
+Polygon Renderer::createPolygon(const vec3f_t& a, const vec3f_t& b, const vec3f_t& c) {
+    return Polygon{{a, b, c}, 3};
+}
+
+void Renderer::clipPolygon(Polygon& polygon) {
+    clipPolygonAgainstPlane(polygon, FRUSTUMPLANES::LEFT_PLANE);
+    clipPolygonAgainstPlane(polygon, FRUSTUMPLANES::RIGHT_PLANE);
+    clipPolygonAgainstPlane(polygon, FRUSTUMPLANES::TOP_PLANE);
+    clipPolygonAgainstPlane(polygon, FRUSTUMPLANES::BOTTOM_PLANE);
+    clipPolygonAgainstPlane(polygon, FRUSTUMPLANES::NEAR_PLANE);
+    clipPolygonAgainstPlane(polygon, FRUSTUMPLANES::FAR_PLANE);
+}
+
+void Renderer::clipPolygonAgainstPlane(Polygon& polygon, FRUSTUMPLANES plane) {
+    auto planePoint = frustumPlanes[plane]._point;
+    auto planeNormal = frustumPlanes[plane]._normal;
+
+    std::array<vec3f_t, MAX_NUM_POLY_VERTICES> insideVertices;
+    int numberOfInsideVertices{0};
+
+    vec3f_t* currentVertex = &polygon.vertices[0];
+    vec3f_t* previousVertex = &polygon.vertices[polygon.num_of_vertices - 1];
+
+    auto current_dot = 0.f;
+    auto previous_dot = (*previousVertex - planePoint) * planeNormal;
+
+    while (currentVertex != &polygon.vertices[polygon.num_of_vertices]) {
+        current_dot = (*currentVertex - planePoint) * planeNormal;
+
+        // If we changed from inside point to outside point or the oppsoite
+        if(current_dot * previous_dot < 0) {
+            // find the interpolation factor t
+            auto t = previous_dot / (previous_dot - current_dot);
+            // Calculate the intersection point I = Q1 + t(Q2-Q1)
+            auto intersection_point = *previousVertex + (*currentVertex - *previousVertex) * t;
+
+            insideVertices[numberOfInsideVertices] = intersection_point;
+            numberOfInsideVertices++;
+        }
+        // If current point is inside the plane
+        if(current_dot > 0) {
+            insideVertices[numberOfInsideVertices] = *currentVertex;
+            numberOfInsideVertices++;
+        }
+        // Move to the next vertex
+        previous_dot = current_dot;
+        previousVertex = currentVertex;
+        currentVertex++;
+    }
+    int i{0};
+    for(auto& insideVertex : insideVertices) {
+        polygon.vertices[i] = insideVertex;
+        ++i;
+    }
+    polygon.num_of_vertices = numberOfInsideVertices;
+}
+
+void Renderer::trianglesFromPolygons(
+    const Polygon& polygon, std::array<Triangle, MAX_NUM_POLY_VERTICES>& triangles_after_clipping,
+    int& num_of_triangles) {
+    for (int i{0}; i < polygon.num_of_vertices - 2; i++) {
+        int idx0 = 0;
+        int idx1 = i + 1;
+        int idx2 = i + 2;
+        triangles_after_clipping[i].points[0] = {polygon.vertices[idx0].x(), polygon.vertices[idx0].y(), polygon.vertices[idx0].z(), 1.f};
+        triangles_after_clipping[i].points[1] = {polygon.vertices[idx1].x(), polygon.vertices[idx1].y(), polygon.vertices[idx1].z(), 1.f};
+        triangles_after_clipping[i].points[2] = {polygon.vertices[idx2].x(), polygon.vertices[idx2].y(), polygon.vertices[idx2].z(), 1.f};
+    }
+    num_of_triangles = polygon.num_of_vertices - 2;
+}
+
+Matrix<float, 4, 1> Renderer::project(Matrix<float, 4, 1>& point) { 
     Matrix<float, 4, 1> vec =
         _persProjMatrix * Matrix<float, 4, 1>{point.x(), point.y(), point.z(), 1.0f};
     
-    // TODO: Clipping against near plane should be done here
-    //TODO
-    
     // perform perspective divide
-    // w_component = vec(3, 0) is the original Z value of the 3d point before projection
+    // w_component = vec(3, 0) is the original Z value of the 3rd point before projection
     if (vec(3, 0) != 0.0f) {
         vec(0, 0) /= vec(3, 0);
         vec(1, 0) /= vec(3, 0);
@@ -793,30 +888,44 @@ void Renderer::update() {
             face.normal = face_normal;
             if (_enableFaceCulling && back_face)
                     continue;
-            // loop over face vertecies to perform projection
-            Triangle projected_triangle;
-            for (auto& vertex : face_vertices) {
-                auto projected_point = project(vertex);
-                // scale into view
-                projected_point.x() *= _windowWidth / 2.0;   
-                projected_point.y() *= _windowHeight / 2.0; 
 
-                // invert y axis to account for flipped screen y coordinates
-                projected_point.y() *= -1; 
+            // CLIPPING
+            // create polygon from a triangle
+            auto polygon = createPolygon(face_vertices[0], face_vertices[1], face_vertices[2]);
+            clipPolygon(polygon);
 
-                // translate to the center of the screen
-                projected_point.x() += _windowWidth / 2.0;  
-                projected_point.y() += _windowHeight / 2.0;
-                projected_triangle.points[i++] = projected_point;
 
-                projected_triangle.text_coords[0] = face.a_uv;
-                projected_triangle.text_coords[1] = face.b_uv;
-                projected_triangle.text_coords[2] = face.c_uv;
-                
-                projected_triangle.normal = face.normal;
-                projected_triangle.color = face.color;
+            // convert polygon to triangles
+            std::array<Triangle, MAX_NUM_POLY_VERTICES>  triangles_after_clipping;
+            int num_triangles_after_clipping = 0;
+            trianglesFromPolygons(polygon, triangles_after_clipping, num_triangles_after_clipping);
+
+            for (auto& triangle : triangles_after_clipping) {
+                // loop over face vertecies to perform projection
+                Triangle projected_triangle;
+                for (auto& vertex : triangle.points) {
+                    auto projected_point = project(vertex);
+                    // scale into view
+                    projected_point.x() *= _windowWidth / 2.0;
+                    projected_point.y() *= _windowHeight / 2.0;
+
+                    // invert y axis to account for flipped screen y coordinates
+                    projected_point.y() *= -1;
+
+                    // translate to the center of the screen
+                    projected_point.x() += _windowWidth / 2.0;
+                    projected_point.y() += _windowHeight / 2.0;
+                    projected_triangle.points[i++] = projected_point;
+
+                    projected_triangle.text_coords[0] = face.a_uv;
+                    projected_triangle.text_coords[1] = face.b_uv;
+                    projected_triangle.text_coords[2] = face.c_uv;
+
+                    projected_triangle.normal = face.normal;
+                    projected_triangle.color = face.color;
+                }
+                _trianglesToRender.push_back(projected_triangle);
             }
-            _trianglesToRender.push_back(projected_triangle);
         }
         // store the last frame triangles, incase of pause is hit we can still render the last frame
         _lastTrianglesToRender = _trianglesToRender;

@@ -38,6 +38,15 @@ enum class RenderMode {
     TEXTURE_WIREFRAME
 };
 
+enum FRUSTUMPLANES {
+    LEFT_PLANE = 0,
+    RIGHT_PLANE,
+    TOP_PLANE,
+    BOTTOM_PLANE,
+    NEAR_PLANE,
+    FAR_PLANE
+};
+
 /*
    this Rendering System is Left-Handed system where Z axis grows inside the screen
    Left-Handed Coordinate System (Z out of the screen)
@@ -90,11 +99,15 @@ private:
     void normalizeModel(std::vector<vec3f_t>& vertices);
     std::pair<bool, vec3f_t> CullingCheck(const std::array<vec3f_t, 3>& face_vertices);
     void constructProjectionMatrix(float fov, float aspectRatio, float znear, float zfar);
-    Matrix<float, 4, 1> project(vec3f_t& point);
+    void initializeFrustumPlanes(float fov, float zNear, float zFar);
+    Polygon createPolygon(const vec3f_t& a, const vec3f_t& b, const vec3f_t& c);
+    void trianglesFromPolygons(const Polygon& polygon, std::array<Triangle, MAX_NUM_POLY_VERTICES>& triangles_after_clipping, int& num_of_triangles);
+    void clipPolygon(Polygon& polygon);
+    void clipPolygonAgainstPlane(Polygon& polygon, FRUSTUMPLANES plane);
+    Matrix<float, 4, 1> project(Matrix<float, 4, 1>& point);
     uint32_t calculateLightIntensityColor(uint32_t original_color, float percentage_factor);
     bool loadObjFileData(const std::string& obj_file_path);
     void loadPNGTextureData(const std::string& fileName);
-
 
 private:
     Timer _timer;
@@ -110,6 +123,11 @@ private:
         vec3f_t _forwardVelocity = {0.0f, 0.0f, 0.0f};
         float _yaw{0.0};  // roation around y axis ofthe camera
     } _camera;
+ 
+    struct FrustumPlane {
+        vec3f_t _point;
+        vec3f_t _normal;
+    };
 
     std::vector<Triangle> _trianglesToRender;
     std::vector<Triangle> _lastTrianglesToRender;
@@ -117,6 +135,7 @@ private:
     std::vector<uint32_t> _meshTextureBuffer;
     std::vector<float> _zBuffer;
     std::vector<float> _zBufferAlternative;
+    std::array<FrustumPlane, 6> frustumPlanes;
 
     std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> _windowPtr =
         std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>(nullptr, SDL_DestroyWindow);
@@ -148,8 +167,4 @@ private:
     bool _isRunning = false;
     bool _pause{false};
     bool _enableFaceCulling{true};
-    // TODO:
-    //bool _roll{true};
-    //bool _pitch{true};
-    //bool _yaw{true};
 };
