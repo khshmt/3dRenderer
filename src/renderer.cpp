@@ -1101,7 +1101,7 @@ bool Renderer::loadObjFileData(const std::string& obj_file_path) {
             _mesh.faces.push_back(face);
         }
     }
-    //normalizeModel(_mesh.vertices);
+    normalizeModel(_mesh.vertices);
     return 0 == fclose(file);
 }
 
