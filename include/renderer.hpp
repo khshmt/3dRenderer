@@ -99,9 +99,9 @@ private:
     void normalizeModel(std::vector<vec3f_t>& vertices);
     std::pair<bool, vec3f_t> CullingCheck(const std::array<vec3f_t, 3>& face_vertices);
     void constructProjectionMatrix(float fov, float aspectRatio, float znear, float zfar);
-    void initializeFrustumPlanes(float fov, float zNear, float zFar);
+    void initializeFrustumPlanes(float fovX, float fovY, float zNear, float zFar);
     Polygon createPolygon(const vec3f_t& a, const vec3f_t& b, const vec3f_t& c);
-    void trianglesFromPolygons(const Polygon& polygon, std::array<Triangle, MAX_NUM_POLY_VERTICES>& triangles_after_clipping, int& num_of_triangles);
+    std::vector<Triangle> trianglesFromPolygons(const Polygon& polygon);
     void clipPolygon(Polygon& polygon);
     void clipPolygonAgainstPlane(Polygon& polygon, FRUSTUMPLANES plane);
     Matrix<float, 4, 1> project(Matrix<float, 4, 1>& point);

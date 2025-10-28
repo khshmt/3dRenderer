@@ -63,12 +63,17 @@ bool Renderer::setupWindow(const std::string& obj_file_path) {
         return false;
     }
 
-    auto fov{60.f}; //60 degrees
-    auto aspectRatio{static_cast<float>(_windowHeight) / _windowWidth};
+    auto aspectRatioY{static_cast<float>(_windowHeight) / _windowWidth};
+    auto aspectRatioX{static_cast<float>(_windowWidth) / static_cast<float>(_windowHeight)};
+   
+    auto fovY{60.f}; // 60 degrees
+    auto fovX{2 * atan(tan((fovY * M_PI / 180.f) / 2) * aspectRatioX)};  // fovX in radians
+
     auto zNear{0.1f};
     auto zFar{100.f};
-    constructProjectionMatrix(fov, aspectRatio, zNear, zFar);
-    initializeFrustumPlanes(fov * (M_PI / 180.f), zNear, zFar);
+
+    constructProjectionMatrix(fovY, aspectRatioY, zNear, zFar);
+    initializeFrustumPlanes(fovX, (fovY * M_PI / 180.f) , zNear, zFar);
 
     auto objloaded = loadObjFileData(obj_file_path);
     auto png_file_path = std::filesystem::path(obj_file_path).replace_extension(".png");
@@ -632,11 +637,11 @@ void Renderer::processInput() {
                         _camera._yaw -= 1.0 * _deltaTime;
                         break;
                     case SDLK_w:
-                        _camera._forwardVelocity = _camera._direction * 2.0;
+                        _camera._forwardVelocity = _camera._direction * 0.5;
                         _camera._position = _camera._position + _camera._forwardVelocity;
                         break;
                     case SDLK_s:
-                        _camera._forwardVelocity = _camera._direction * 2.0;
+                        _camera._forwardVelocity = _camera._direction * 0.5;
                         _camera._position = _camera._position - _camera._forwardVelocity;
                         break;
                     default:
@@ -667,20 +672,23 @@ void Renderer::constructProjectionMatrix(float fov, float aspectRatio, float zne
     _persProjMatrix(3, 3) = 0.0f;
 }
 
-void Renderer::initializeFrustumPlanes(float fov, float zNear, float zFar) {
-    auto cosHalfFov = cos(fov / 2);
-    auto sinHalfFov = sin(fov / 2);
+void Renderer::initializeFrustumPlanes(float fovX, float fovY, float zNear, float zFar) {
+    auto cosHalfFovX = cos(fovX / 2);
+    auto sinHalfFovX = sin(fovX / 2);
+    auto cosHalfFovY = cos(fovY / 2);
+    auto sinHalfFovY = sin(fovY / 2);
+
     frustumPlanes[FRUSTUMPLANES::LEFT_PLANE]._point = {0.f, 0.f, 0.f};
-    frustumPlanes[FRUSTUMPLANES::LEFT_PLANE]._normal = {cosHalfFov, 0.f, sinHalfFov};
+    frustumPlanes[FRUSTUMPLANES::LEFT_PLANE]._normal = {cosHalfFovX, 0.f, sinHalfFovX};
 
     frustumPlanes[FRUSTUMPLANES::RIGHT_PLANE]._point = {0.f, 0.f, 0.f};
-    frustumPlanes[FRUSTUMPLANES::RIGHT_PLANE]._normal = {-cosHalfFov, 0.f, sinHalfFov};    
+    frustumPlanes[FRUSTUMPLANES::RIGHT_PLANE]._normal = {-cosHalfFovX, 0.f, sinHalfFovX};    
 
     frustumPlanes[FRUSTUMPLANES::TOP_PLANE]._point = {0.f, 0.f, 0.f};
-    frustumPlanes[FRUSTUMPLANES::TOP_PLANE]._normal = {0.f, -cosHalfFov, sinHalfFov};
+    frustumPlanes[FRUSTUMPLANES::TOP_PLANE]._normal = {0.f, -cosHalfFovY, sinHalfFovY};
 
     frustumPlanes[FRUSTUMPLANES::BOTTOM_PLANE]._point = {0.f, 0.f, 0.f};
-    frustumPlanes[FRUSTUMPLANES::BOTTOM_PLANE]._normal = {0.f, cosHalfFov, sinHalfFov};
+    frustumPlanes[FRUSTUMPLANES::BOTTOM_PLANE]._normal = {0.f, cosHalfFovY, sinHalfFovY};
 
     frustumPlanes[FRUSTUMPLANES::NEAR_PLANE]._point = {0.f, 0.f, zNear};
     frustumPlanes[FRUSTUMPLANES::NEAR_PLANE]._normal = {0.f, 0.f, 1.f};
@@ -739,25 +747,32 @@ void Renderer::clipPolygonAgainstPlane(Polygon& polygon, FRUSTUMPLANES plane) {
         currentVertex++;
     }
     int i{0};
-    for(auto& insideVertex : insideVertices) {
+    for (auto& insideVertex : insideVertices) {
         polygon.vertices[i] = insideVertex;
         ++i;
     }
     polygon.num_of_vertices = numberOfInsideVertices;
 }
 
-void Renderer::trianglesFromPolygons(
-    const Polygon& polygon, std::array<Triangle, MAX_NUM_POLY_VERTICES>& triangles_after_clipping,
-    int& num_of_triangles) {
-    for (int i{0}; i < polygon.num_of_vertices - 2; i++) {
+std::vector<Triangle> Renderer::trianglesFromPolygons(const Polygon& polygon) {
+    auto num_of_triangles = polygon.num_of_vertices - 2;
+    std::vector<Triangle> triangles_after_clipping(num_of_triangles);
+
+    for (int i{0}; i < num_of_triangles; i++) {
         int idx0 = 0;
         int idx1 = i + 1;
         int idx2 = i + 2;
-        triangles_after_clipping[i].points[0] = {polygon.vertices[idx0].x(), polygon.vertices[idx0].y(), polygon.vertices[idx0].z(), 1.f};
-        triangles_after_clipping[i].points[1] = {polygon.vertices[idx1].x(), polygon.vertices[idx1].y(), polygon.vertices[idx1].z(), 1.f};
-        triangles_after_clipping[i].points[2] = {polygon.vertices[idx2].x(), polygon.vertices[idx2].y(), polygon.vertices[idx2].z(), 1.f};
+        triangles_after_clipping[i].points[0] = {polygon.vertices[idx0].x(),
+                                                 polygon.vertices[idx0].y(),
+                                                 polygon.vertices[idx0].z(), 1.f};
+        triangles_after_clipping[i].points[1] = {polygon.vertices[idx1].x(),
+                                                 polygon.vertices[idx1].y(),
+                                                 polygon.vertices[idx1].z(), 1.f};
+        triangles_after_clipping[i].points[2] = {polygon.vertices[idx2].x(),
+                                                 polygon.vertices[idx2].y(),
+                                                 polygon.vertices[idx2].z(), 1.f};
     }
-    num_of_triangles = polygon.num_of_vertices - 2;
+    return triangles_after_clipping;
 }
 
 Matrix<float, 4, 1> Renderer::project(Matrix<float, 4, 1>& point) { 
@@ -893,34 +908,28 @@ void Renderer::update() {
             // create polygon from a triangle
             auto polygon = createPolygon(face_vertices[0], face_vertices[1], face_vertices[2]);
             clipPolygon(polygon);
-
-
             // convert polygon to triangles
-            std::array<Triangle, MAX_NUM_POLY_VERTICES>  triangles_after_clipping;
-            int num_triangles_after_clipping = 0;
-            trianglesFromPolygons(polygon, triangles_after_clipping, num_triangles_after_clipping);
-
+            std::vector<Triangle> triangles_after_clipping = trianglesFromPolygons(polygon);
+            
             for (auto& triangle : triangles_after_clipping) {
                 // loop over face vertecies to perform projection
                 Triangle projected_triangle;
+                i = 0;
                 for (auto& vertex : triangle.points) {
                     auto projected_point = project(vertex);
                     // scale into view
                     projected_point.x() *= _windowWidth / 2.0;
                     projected_point.y() *= _windowHeight / 2.0;
-
                     // invert y axis to account for flipped screen y coordinates
                     projected_point.y() *= -1;
-
                     // translate to the center of the screen
                     projected_point.x() += _windowWidth / 2.0;
                     projected_point.y() += _windowHeight / 2.0;
-                    projected_triangle.points[i++] = projected_point;
 
+                    projected_triangle.points[i++] = projected_point;
                     projected_triangle.text_coords[0] = face.a_uv;
                     projected_triangle.text_coords[1] = face.b_uv;
                     projected_triangle.text_coords[2] = face.c_uv;
-
                     projected_triangle.normal = face.normal;
                     projected_triangle.color = face.color;
                 }

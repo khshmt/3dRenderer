@@ -39,7 +39,7 @@ struct Polygon {
 struct Mesh {
     std::vector<vec3f_t> vertices;  // vector the mesh vertices
     std::vector<Face> faces;  // each face stores the indices of the vertices that make up the face
-    vec3f_t rotation{0, 0, 0};     //roation with x, y, z
+    vec3f_t rotation{0, 0, 0};     // roation with x, y, z
     vec3f_t scale{1.0, 1.0, 1.0};        // scale with x, y, z
     vec3f_t translation{0, 0, 0};  // translation with x, y, z
 };
