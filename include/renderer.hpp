@@ -100,7 +100,8 @@ private:
     std::pair<bool, vec3f_t> CullingCheck(const std::array<vec3f_t, 3>& face_vertices);
     void constructProjectionMatrix(float fov, float aspectRatio, float znear, float zfar);
     void initializeFrustumPlanes(float fovX, float fovY, float zNear, float zFar);
-    Polygon createPolygon(const vec3f_t& a, const vec3f_t& b, const vec3f_t& c);
+    Polygon createPolygon(const vec3f_t& a, const vec3f_t& b, const vec3f_t& c, const vec2f_t& a_uv,
+                          const vec2f_t& b_uv, const vec2f_t& c_uv);
     std::vector<Triangle> trianglesFromPolygons(const Polygon& polygon);
     void clipPolygon(Polygon& polygon);
     void clipPolygonAgainstPlane(Polygon& polygon, FRUSTUMPLANES plane);

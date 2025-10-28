@@ -33,6 +33,7 @@ struct Triangle {
 
 struct Polygon {
     std::array<vec3f_t, MAX_NUM_POLY_VERTICES> vertices;
+    std::array<vec2f_t, MAX_NUM_POLY_VERTICES> textcoords;
     int num_of_vertices;
 };
 

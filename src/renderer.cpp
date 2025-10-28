@@ -125,7 +125,7 @@ void Renderer::drawTexel(const vec2i_t& point, const std::vector<uint32_t>& text
     interpolated_u /= interpolated_reciprocal_w;
     interpolated_v /= interpolated_reciprocal_w;
 
-    // Map the UV coordinate to the full texture width and height
+    // Map the UV coordinate to the full texture width and height 
     int tex_x = abs((int)(interpolated_u * _textureWidth)) % _textureWidth;
     int tex_y = abs((int)(interpolated_v * _textureHeight)) % _textureHeight;
 
@@ -133,12 +133,14 @@ void Renderer::drawTexel(const vec2i_t& point, const std::vector<uint32_t>& text
     interpolated_reciprocal_w = 1.0 - interpolated_reciprocal_w;
 
     // Only draw the pixel if the depth value is less than the one previously stored in the z-buffer
-    if (interpolated_reciprocal_w < _zBuffer[(_windowWidth * point.y()) + point.x()]) {
-        // Draw a pixel at position (x,y) with the color that comes from the mapped texture
-        drawPixel(point.x(), point.y(), texture[(_textureWidth * tex_y) + tex_x]);
+    if ((_windowWidth * point.y()) + point.x() < _zBuffer.size()) {
+        if (interpolated_reciprocal_w < _zBuffer[(_windowWidth * point.y()) + point.x()]) {
+            // Draw a pixel at position (x,y) with the color that comes from the mapped texture
+            drawPixel(point.x(), point.y(), texture[(_textureWidth * tex_y) + tex_x]);
 
-        // Update the z-buffer value with the 1/w of this current pixel
-        _zBuffer[(_windowWidth * point.y()) + point.x()] = interpolated_reciprocal_w;
+            // Update the z-buffer value with the 1/w of this current pixel
+            _zBuffer[(_windowWidth * point.y()) + point.x()] = interpolated_reciprocal_w;
+        }
     }
 }
 
@@ -697,8 +699,9 @@ void Renderer::initializeFrustumPlanes(float fovX, float fovY, float zNear, floa
     frustumPlanes[FRUSTUMPLANES::FAR_PLANE]._normal = {0.f, 0.f, -1.f};  
 }
 
-Polygon Renderer::createPolygon(const vec3f_t& a, const vec3f_t& b, const vec3f_t& c) {
-    return Polygon{{a, b, c}, 3};
+Polygon Renderer::createPolygon(const vec3f_t& a, const vec3f_t& b, const vec3f_t& c,
+                                const vec2f_t& a_uv, const vec2f_t& b_uv, const vec2f_t& c_uv) {
+    return Polygon{.vertices = {a, b, c}, .textcoords = {a_uv, b_uv, c_uv}, .num_of_vertices = 3};
 }
 
 void Renderer::clipPolygon(Polygon& polygon) {
@@ -711,14 +714,20 @@ void Renderer::clipPolygon(Polygon& polygon) {
 }
 
 void Renderer::clipPolygonAgainstPlane(Polygon& polygon, FRUSTUMPLANES plane) {
+    if (polygon.num_of_vertices == 0)
+        return;
     auto planePoint = frustumPlanes[plane]._point;
     auto planeNormal = frustumPlanes[plane]._normal;
 
     std::array<vec3f_t, MAX_NUM_POLY_VERTICES> insideVertices;
+    std::array<vec2f_t, MAX_NUM_POLY_VERTICES> insidetextCoords;
     int numberOfInsideVertices{0};
 
     vec3f_t* currentVertex = &polygon.vertices[0];
+    vec2f_t* currentTextCoords = &polygon.textcoords[0];
+
     vec3f_t* previousVertex = &polygon.vertices[polygon.num_of_vertices - 1];
+    vec2f_t* previousTextCoords = &polygon.textcoords[polygon.num_of_vertices - 1];
 
     auto current_dot = 0.f;
     auto previous_dot = (*previousVertex - planePoint) * planeNormal;
@@ -730,31 +739,47 @@ void Renderer::clipPolygonAgainstPlane(Polygon& polygon, FRUSTUMPLANES plane) {
         if(current_dot * previous_dot < 0) {
             // find the interpolation factor t
             auto t = previous_dot / (previous_dot - current_dot);
-            // Calculate the intersection point I = Q1 + t(Q2-Q1)
+            // Calculate the intersection point using linear interpolation I = Q1 + t(Q2-Q1)
             auto intersection_point = *previousVertex + (*currentVertex - *previousVertex) * t;
 
+            //use linear interpolation formula(lerp) to get U and V texture coordinates
+            auto interploated_textcoords =
+                *previousTextCoords + (*currentTextCoords - *previousTextCoords) * t;
+
+            // Add the intersection point to the inside vertices
             insideVertices[numberOfInsideVertices] = intersection_point;
+            insidetextCoords[numberOfInsideVertices] = interploated_textcoords;
             numberOfInsideVertices++;
         }
         // If current point is inside the plane
         if(current_dot > 0) {
             insideVertices[numberOfInsideVertices] = *currentVertex;
+            insidetextCoords[numberOfInsideVertices] = *currentTextCoords;
             numberOfInsideVertices++;
         }
         // Move to the next vertex
         previous_dot = current_dot;
         previousVertex = currentVertex;
+        previousTextCoords = currentTextCoords;
         currentVertex++;
+        currentTextCoords++;
     }
     int i{0};
     for (auto& insideVertex : insideVertices) {
         polygon.vertices[i] = insideVertex;
         ++i;
     }
-    polygon.num_of_vertices = numberOfInsideVertices;
+    i = 0;
+    for (auto& insideTextCoord : insidetextCoords) {
+        polygon.textcoords[i] = insideTextCoord;
+        ++i;
+        polygon.num_of_vertices = numberOfInsideVertices;
+    }
 }
 
 std::vector<Triangle> Renderer::trianglesFromPolygons(const Polygon& polygon) {
+    if (polygon.num_of_vertices == 0)
+        return{};
     auto num_of_triangles = polygon.num_of_vertices - 2;
     std::vector<Triangle> triangles_after_clipping(num_of_triangles);
 
@@ -771,6 +796,12 @@ std::vector<Triangle> Renderer::trianglesFromPolygons(const Polygon& polygon) {
         triangles_after_clipping[i].points[2] = {polygon.vertices[idx2].x(),
                                                  polygon.vertices[idx2].y(),
                                                  polygon.vertices[idx2].z(), 1.f};
+        triangles_after_clipping[i].text_coords[0] = {polygon.textcoords[idx0].x(),
+                                                      polygon.textcoords[idx0].y()};
+        triangles_after_clipping[i].text_coords[1] = {polygon.textcoords[idx1].x(),
+                                                      polygon.textcoords[idx1].y()};
+        triangles_after_clipping[i].text_coords[2] = {polygon.textcoords[idx2].x(),
+                                                      polygon.textcoords[idx2].y()};
     }
     return triangles_after_clipping;
 }
@@ -906,7 +937,8 @@ void Renderer::update() {
 
             // CLIPPING
             // create polygon from a triangle
-            auto polygon = createPolygon(face_vertices[0], face_vertices[1], face_vertices[2]);
+            auto polygon = createPolygon(face_vertices[0], face_vertices[1], face_vertices[2],
+                                         face.a_uv, face.b_uv, face.c_uv);
             clipPolygon(polygon);
             // convert polygon to triangles
             std::vector<Triangle> triangles_after_clipping = trianglesFromPolygons(polygon);
@@ -927,9 +959,9 @@ void Renderer::update() {
                     projected_point.y() += _windowHeight / 2.0;
 
                     projected_triangle.points[i++] = projected_point;
-                    projected_triangle.text_coords[0] = face.a_uv;
-                    projected_triangle.text_coords[1] = face.b_uv;
-                    projected_triangle.text_coords[2] = face.c_uv;
+                    projected_triangle.text_coords[0] = triangle.text_coords[0];
+                    projected_triangle.text_coords[1] = triangle.text_coords[1];
+                    projected_triangle.text_coords[2] = triangle.text_coords[2];
                     projected_triangle.normal = face.normal;
                     projected_triangle.color = face.color;
                 }
@@ -1069,7 +1101,7 @@ bool Renderer::loadObjFileData(const std::string& obj_file_path) {
             _mesh.faces.push_back(face);
         }
     }
-    normalizeModel(_mesh.vertices);
+    //normalizeModel(_mesh.vertices);
     return 0 == fclose(file);
 }
 
