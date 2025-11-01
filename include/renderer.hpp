@@ -111,7 +111,6 @@ private:
     void loadPNGTextureData(const std::string& fileName);
 
 private:
-    Timer _timer;
     Mesh _mesh;
 
     Matrix<float, 4, 4> _worldMatrix;

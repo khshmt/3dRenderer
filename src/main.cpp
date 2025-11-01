@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
                     #ifdef TRACY_ENABLE
                     FrameMarkStart("game loop");
                     #endif
-                    timer.startWatch(__func__);
+                    timer.startWatch();
                     
                     renderer.processInput(); // #1-Game Loop
                     renderer.update(); // #2-Game Loop

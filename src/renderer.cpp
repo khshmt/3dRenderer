@@ -874,8 +874,6 @@ void Renderer::loadPNGTextureData(const std::string& fileName) {
 }
 
 void Renderer::update() {
-    _timer.startWatch(__func__);
-
     //this technique is prefered because SDL_TICKS_PASSED could lead to high CPU usage because of the while loop
     //auto delayTime = _frameTargetTime - (SDL_GetTicks() - _previousFrameTime);
     //if (delayTime > 0 && delayTime <= _frameTargetTime) {
@@ -973,12 +971,9 @@ void Renderer::update() {
         // store the last frame triangles, incase of pause is hit we can still render the last frame
         _lastTrianglesToRender = _trianglesToRender;
     }
-    _timer.endWatch();
 }
 
 void Renderer::render(double timer_value) {
-    _timer.startWatch(__func__);
-
     clearColorBuffer(0xFF000000);
     drawGrid();
 
@@ -1046,7 +1041,6 @@ void Renderer::render(double timer_value) {
     SDL_RenderPresent(_rendererPtr.get());
     _trianglesToRender.clear();
     std::fill(_zBuffer.begin(), _zBuffer.end(), 1.0f);
-    _timer.endWatch();
 }
 
 bool Renderer::loadObjFileData(const std::string& obj_file_path) {

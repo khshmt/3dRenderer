@@ -5,21 +5,15 @@
 #include <string>
 
 using namespace std::string_literals;
+
 class Timer {   
 public:
-    Timer() {
-        auto file_name = "log"s + std::to_string(count) + ".txt"s;
-        _file = std::fstream(file_name, std::ios::out);
-        count++;
-    }
+    Timer() = default;
 
-    ~Timer() { 
-        _file.close();
-    }
+    ~Timer() = default;
 
-    void startWatch(std::string_view functionName) { 
+    void startWatch() { 
         _startWatchTime = std::chrono::steady_clock::now(); 
-        _functionName = functionName;
     }
 
     void endWatch() { 
@@ -27,7 +21,6 @@ public:
         auto _time =
             std::chrono::duration_cast<std::chrono::microseconds>(_endWatchTime - _startWatchTime)
                 .count();
-        _file << _functionName << " takes: " << _time << "us\n";
         _fps = FPS();
     }
 
@@ -51,9 +44,5 @@ private:
 private:
     std::chrono::time_point<std::chrono::steady_clock> _startWatchTime;
     std::chrono::time_point<std::chrono::steady_clock> _endWatchTime;
-    std::fstream _file;
-    std::string_view _functionName;
     double _fps{};
-    inline static int count{0};
-
 };
