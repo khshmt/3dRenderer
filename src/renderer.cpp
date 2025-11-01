@@ -163,12 +163,14 @@ void Renderer::drawTrianglePixel(int x, int y, uint32_t color, const Matrix<floa
     interpolated_reciprocal_w = 1.0 - interpolated_reciprocal_w;
 
     // Only draw the pixel if the depth value is less than the one previously stored in the z-buffer
-    if (interpolated_reciprocal_w < _zBuffer[(_windowWidth * y) + x]) {
-        // Draw a pixel at position (x,y) with a solid color
-        drawPixel(x, y, color);
+    if ((_windowWidth * y) + x <= _zBuffer.size()) {
+        if (interpolated_reciprocal_w < _zBuffer[(_windowWidth * y) + x]) {
+            // Draw a pixel at position (x,y) with a solid color
+            drawPixel(x, y, color);
 
-        // Update the z-buffer value with the 1/w of this current pixel
-        _zBuffer[(_windowWidth * y) + x] = interpolated_reciprocal_w;
+            // Update the z-buffer value with the 1/w of this current pixel
+            _zBuffer[(_windowWidth * y) + x] = interpolated_reciprocal_w;
+        }
     }
 }
 
