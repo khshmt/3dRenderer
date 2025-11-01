@@ -122,6 +122,7 @@ private:
         vec3f_t _direction = {0.0f, 0.0f, 1.0f};
         vec3f_t _forwardVelocity = {0.0f, 0.0f, 0.0f};
         float _yaw{0.0};  // roation around y axis ofthe camera
+        float _pitch{0.0};  // rotation around x axis of the camera
     } _camera;
  
     struct FrustumPlane {

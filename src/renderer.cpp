@@ -629,24 +629,30 @@ void Renderer::processInput() {
                         _currentRenderMode = RenderMode::TEXTURE_WIREFRAME;
                         break;
                     case SDLK_UP:
-                        _camera._position.y() += 1.0 * _deltaTime;
-                        break;
-                    case SDLK_DOWN:
-                        _camera._position.y() -= 1.0 * _deltaTime;
-                        break;
-                    case SDLK_a:
-                        _camera._yaw += 1.0 * _deltaTime;
-                        break;
-                    case SDLK_d:
-                        _camera._yaw -= 1.0 * _deltaTime;
-                        break;
-                    case SDLK_w:
-                        _camera._forwardVelocity = _camera._direction * 0.5;
+                        // move camera forward
+                        _camera._forwardVelocity = _camera._direction * 0.1;
                         _camera._position = _camera._position + _camera._forwardVelocity;
                         break;
-                    case SDLK_s:
-                        _camera._forwardVelocity = _camera._direction * 0.5;
+                    case SDLK_DOWN:
+                        // move camera backward
+                        _camera._forwardVelocity = _camera._direction * 0.1;
                         _camera._position = _camera._position - _camera._forwardVelocity;
+                        break;
+                    case SDLK_LEFT:
+                        // change yaw angle to look left
+                        _camera._yaw -= 1.0 * _deltaTime;
+                        break;
+                    case SDLK_RIGHT:
+                        // change yaw angle to look right
+                        _camera._yaw += 1.0 * _deltaTime;
+                        break;
+                    case SDLK_w:
+                        // change pitch angle to look up
+                        _camera._pitch -= 1.0 * _deltaTime;
+                        break;
+                    case SDLK_s:
+                        // change pitch angle to look down
+                        _camera._pitch += 1.0 * _deltaTime;
                         break;
                     default:
                         break;
@@ -899,7 +905,7 @@ void Renderer::update() {
 
         //create the view matrix
         Matrix<float, 4, 4> cameraYawRotation;
-        cameraYawRotation.setRotation(0.f, _camera._yaw, 0.f);
+        cameraYawRotation.setRotation(_camera._pitch, _camera._yaw, 0.f);
         auto direction = cameraYawRotation * Matrix<float, 4, 1>{0.f, 0.f, 1.f, 1.f};
         _camera._direction = {direction.x(), direction.y(), direction.z()};
 
