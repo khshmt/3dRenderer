@@ -888,10 +888,10 @@ void Renderer::update() {
 
     // this technique is better for consistent frame rate, and no high CPU usage observed on windows
     while (!SDL_TICKS_PASSED(SDL_GetTicks(), _previousFrameTime + _frameTargetTime)) {}
+    _deltaTime = (SDL_GetTicks() - _previousFrameTime) / 1000.0;
+    _previousFrameTime = SDL_GetTicks();
 
     if (!_pause) {
-        _deltaTime = (SDL_GetTicks() - _previousFrameTime) / 1000.0;
-        _previousFrameTime = SDL_GetTicks();
         // Scale
         //_mesh.scale.x() += (0.02 * _deltaTime);
         //_mesh.scale.y() += (0.02 * _deltaTime);
@@ -899,9 +899,9 @@ void Renderer::update() {
         //_mesh.translation.x() += (0.04 * _deltaTime);
         _mesh.translation.z() = -_camera._position.z();
         // Roation
-        _mesh.rotation.x() += (0.0 * _deltaTime);
-        _mesh.rotation.y() += (0.0 * _deltaTime);
-        _mesh.rotation.z() += (0.0 * _deltaTime);
+        _mesh.rotation.x() += (0.5 * _deltaTime);
+        _mesh.rotation.y() += (0.5 * _deltaTime);
+        _mesh.rotation.z() += (0.5 * _deltaTime);
 
         //create the view matrix
         Matrix<float, 4, 4> cameraYawRotation;
@@ -1039,10 +1039,9 @@ void Renderer::render(double timer_value) {
     drawText(" #4 ", dims2, {40, 160}, _currentRenderMode == RenderMode::RASTERIZE_WIREFRAME);
     drawText(" #5 ", dims2, {40, 190}, _currentRenderMode == RenderMode::TEXTURE);
     drawText(" #6 ", dims2, {40, 220}, _currentRenderMode == RenderMode::TEXTURE_WIREFRAME);
-    drawText("C_Key: Culling.", {150, 30}, {40, 260},  _enableFaceCulling);
-    drawText("D_Key: Disable Culling.", {200, 30}, {40, 290}, !_enableFaceCulling);
+    drawText("c_Key: Culling.", {150, 30}, {40, 260},  _enableFaceCulling);
+    drawText("x_Key: Disable Culling.", {200, 30}, {40, 290}, !_enableFaceCulling);
     drawText("Space_Key: Pause.", {200, 30}, {40, 320}, _pause);
-    drawText("Mouse Wheel Zoom in/out.", {200, 30}, {40, 350}, false);
 
     SDL_RenderPresent(_rendererPtr.get());
     _trianglesToRender.clear();
