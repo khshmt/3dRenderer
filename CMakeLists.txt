@@ -44,4 +44,6 @@ add_custom_command(TARGET ${PROJECT_NAME} PRE_BUILD
     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Roboto-Regular.ttf
 )
 
-add_subdirectory(benchmark)
+if(ENABLE_PROFILING) 
+    add_subdirectory(benchmark)
+endif()

@@ -899,9 +899,9 @@ void Renderer::update() {
         //_mesh.translation.x() += (0.04 * _deltaTime);
         _mesh.translation.z() = -_camera._position.z();
         // Roation
-        _mesh.rotation.x() += (0.5 * _deltaTime);
-        _mesh.rotation.y() += (0.5 * _deltaTime);
-        _mesh.rotation.z() += (0.5 * _deltaTime);
+        _mesh.rotation.x() += (0.0 * _deltaTime);
+        _mesh.rotation.y() += (0.0 * _deltaTime);
+        _mesh.rotation.z() += (0.0 * _deltaTime);
 
         //create the view matrix
         Matrix<float, 4, 4> cameraYawRotation;
