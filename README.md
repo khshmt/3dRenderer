@@ -74,6 +74,8 @@ After building the project, you can run the executable directly from the build d
 | `W` / `S` | Adjust camera **pitch** (look up/down) |
 | `C` | **Enable** keyframe culling |
 | `X` | **Disable** keyframe culling |
+| `R` | **Disable or Enable** model rotation the default no rotation |
+| `Space` | stop model rotation if it is rotating |
 | `Esc` | Exit the renderer |
 
 > 💡 Use these controls to navigate the 3D scene and toggle rendering modes dynamically.

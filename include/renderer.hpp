@@ -168,4 +168,5 @@ private:
     bool _isRunning = false;
     bool _pause{false};
     bool _enableFaceCulling{true};
+    bool _rotateModel{false};
 };

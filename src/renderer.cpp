@@ -654,6 +654,8 @@ void Renderer::processInput() {
                         // change pitch angle to look down
                         _camera._pitch += 1.0 * _deltaTime;
                         break;
+                    case SDLK_r:
+                        _rotateModel = !_rotateModel;
                     default:
                         break;
                 }
@@ -899,9 +901,12 @@ void Renderer::update() {
         //_mesh.translation.x() += (0.04 * _deltaTime);
         _mesh.translation.z() = -_camera._position.z();
         // Roation
-        _mesh.rotation.x() += (0.0 * _deltaTime);
-        _mesh.rotation.y() += (0.0 * _deltaTime);
-        _mesh.rotation.z() += (0.0 * _deltaTime);
+        auto roationFactor{0.0};
+        if (_rotateModel)
+            roationFactor = 0.5;
+        _mesh.rotation.x() += (roationFactor * _deltaTime);
+        _mesh.rotation.y() += (roationFactor * _deltaTime);
+        _mesh.rotation.z() += (roationFactor * _deltaTime);
 
         //create the view matrix
         Matrix<float, 4, 4> cameraYawRotation;
