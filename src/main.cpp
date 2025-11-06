@@ -10,13 +10,13 @@
 int main(int argc, char* argv[]) {
     if (!argv[1]) {
         std::cerr << "Enter a path to .obj file.\n";
-        //return 1;
+        return 1;
     }
     {
         Timer timer;
         Renderer renderer;
         if (renderer.initializeWindow(false)) {
-            if (renderer.setupWindow("D:/my_projects/pikuma/3dRenderer/assets/drone.obj"/*argv[1]*/)) {
+            if (renderer.setupWindow(argv[1])) {
                 // Game Loop
                 while (renderer.getWindowState()) {
                     #ifdef TRACY_ENABLE
