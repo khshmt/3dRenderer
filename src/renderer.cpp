@@ -93,13 +93,12 @@ void Renderer::drawPixel(int x, int y, uint32_t color) {
     }
 }
 
-void Renderer::drawTexel(const vec2i_t& point, const std::vector<uint32_t>& texture,
-                         const Matrix<float, 4, 1>& a, const Matrix<float, 4, 1>& b,
-                         const Matrix<float, 4, 1>& c, const vec2f_t& uv0, const vec2f_t& uv1,
-                         const vec2f_t& uv2) {
-    vec2f_t point_p{(float)point.x(), (float)point.y()};
-    vec3f_t weights = barycentric_weights(vec2f_t{a.x(), a.y()}, vec2f_t{b.x(), b.y()},
-                                          vec2f_t{c.x(), c.y()}, point_p);
+void Renderer::drawTexel(const Vector2i& point, const std::vector<uint32_t>& texture,
+                         const Vector4f& a, const Vector4f& b, const Vector4f& c,
+                         const Vector2f& uv0, const Vector2f& uv1, const Vector2f& uv2) {
+    Vector2f point_p{(float)point.x(), (float)point.y()};
+    Vector3f weights = barycentric_weights(Vector2f{a.x(), a.y()}, Vector2f{b.x(), b.y()},
+                                          Vector2f{c.x(), c.y()}, point_p);
 
     float alpha = weights.x();
     float beta = weights.y();
@@ -144,12 +143,12 @@ void Renderer::drawTexel(const vec2i_t& point, const std::vector<uint32_t>& text
     }
 }
 
-void Renderer::drawTrianglePixel(int x, int y, uint32_t color, const Matrix<float, 4, 1>& a,
-                       const Matrix<float, 4, 1>& b, const Matrix<float, 4, 1>& c) {
+void Renderer::drawTrianglePixel(int x, int y, uint32_t color, const Vector4f& a, const Vector4f& b,
+                                 const Vector4f& c) {
     // Create three vec2 to find the interpolation
-    vec2f_t p = {(float)x, (float)y};
-    vec3f_t weights = barycentric_weights(vec2f_t{a.x(), a.y()}, vec2f_t{b.x(), b.y()},
-                                          vec2f_t{c.x(), c.y()}, p);
+    Vector2f p = {(float)x, (float)y};
+    Vector3f weights = barycentric_weights(Vector2f{a.x(), a.y()}, Vector2f{b.x(), b.y()},
+                                           Vector2f{c.x(), c.y()}, p);
 
     float alpha = weights.x();
     float beta = weights.y();
@@ -174,8 +173,8 @@ void Renderer::drawTrianglePixel(int x, int y, uint32_t color, const Matrix<floa
     }
 }
 
-vec3f_t Renderer::barycentric_weights(const vec2f_t& a, const vec2f_t& b, const vec2f_t& c,
-                                      const vec2f_t& p) {
+Vector3f Renderer::barycentric_weights(const Vector2f& a, const Vector2f& b, const Vector2f& c,
+                                      const Vector2f& p) {
     // Find the vectors between the vertices ABC and point p
     auto ac = c - a;
     auto ab = b - a;
@@ -195,8 +194,7 @@ vec3f_t Renderer::barycentric_weights(const vec2f_t& a, const vec2f_t& b, const 
     // Weight gamma is easily found since barycentric coordinates always add up to 1.0
     float gamma = 1 - alpha - beta;
 
-    vec3f_t weights = {alpha, beta, gamma};
-    return weights;
+    return {alpha, beta, gamma};
 }
 
 void Renderer::drawGrid() {
@@ -253,8 +251,8 @@ void Renderer::drawTriangle(const Triangle& tri, uint32_t color) {
 //  |       /       \
 //  |      /         \
 //  v +y (x1,y1)------(x2,y2)
-void Renderer::rasterizeFlatBottomTriangle(const vec2i_t& p0, const vec2i_t& p1, const vec2i_t& p2,
-                                           uint32_t color) {
+void Renderer::rasterizeFlatBottomTriangle(const Vector2i& p0, const Vector2i& p1,
+                                           const Vector2i& p2, uint32_t color) {
     // Find the two inverse slopes (two triangle legs)
     // inverse slope = run / rise, which tells us how much x changes for each unit change in y
     // since we are looping over y (scanline by scanline), while slope = rise / run
@@ -287,7 +285,7 @@ void Renderer::rasterizeFlatBottomTriangle(const vec2i_t& p0, const vec2i_t& p1,
 // |         \ /
 // |       (x2,y2)
 // v +y
-void Renderer::rasterizeFlatTopTriangle(const vec2i_t& p0, const vec2i_t& p1, const vec2i_t& p2,
+void Renderer::rasterizeFlatTopTriangle(const Vector2i& p0, const Vector2i& p1, const Vector2i& p2,
                                         uint32_t color) {
     // Find the two slopes (two triangle legs)
     float inv_slope_1{};
@@ -328,23 +326,18 @@ void Renderer::rasterizeFlatTopTriangle(const vec2i_t& p0, const vec2i_t& p1, co
 //                         (x2,y2)
 //
 void Renderer::rasterizeTriangle1(const Triangle& tri, uint32_t color)  {
-    std::array<vec2i_t, 3> verts = {
-        vec2i_t{(int)tri.points[0].x(), (int)tri.points[0].y()},
-        vec2i_t{(int)tri.points[1].x(), (int)tri.points[1].y()},
-        vec2i_t{(int)tri.points[2].x(), (int)tri.points[2].y()},
+    std::array<Vector2i, 3> verts = {
+        Vector2i{(int)tri.points[0].x(), (int)tri.points[0].y()},
+        Vector2i{(int)tri.points[1].x(), (int)tri.points[1].y()},
+        Vector2i{(int)tri.points[2].x(), (int)tri.points[2].y()},
     };
 
     // Sort by y, where y0 < y1 < y2
     std::sort(std::begin(verts), std::end(verts), [](auto& a, auto& b) { return a.y() < b.y(); });
 
-    auto x0 = verts[0].x();
-    auto y0 = verts[0].y();
-
-    auto x1 = verts[1].x();
-    auto y1 = verts[1].y();
-
-    auto x2 = verts[2].x();
-    auto y2 = verts[2].y();
+    auto [x0, y0] = verts[0];
+    auto [x1, y1] = verts[1];
+    auto [x2, y2] = verts[2];
 
     if (y1 == y2) {
         // Draw flat-bottom triangle
@@ -370,7 +363,7 @@ void Renderer::rasterizeTriangle1(const Triangle& tri, uint32_t color)  {
 }
 
 void Renderer::rasterizeTriangle2(const Triangle& tri, uint32_t color) {
-    std::array<std::tuple<vec2i_t, vec2f_t, vec2f_t>, 3> verts = {
+    std::array<std::tuple<Eigen::Vector2i, Eigen::Vector2f, Eigen::Vector2f>, 3> verts = {
         {{{(int)tri.points[0].x(), (int)tri.points[0].y()}, {tri.points[0].z(), tri.points[0].w()}, tri.text_coords[0]},
          {{(int)tri.points[1].x(), (int)tri.points[1].y()}, {tri.points[1].z(), tri.points[1].w()}, tri.text_coords[0]},
          {{(int)tri.points[2].x(), (int)tri.points[2].y()}, {tri.points[2].z(), tri.points[2].w()}, tri.text_coords[0]}}};
@@ -384,30 +377,31 @@ void Renderer::rasterizeTriangle2(const Triangle& tri, uint32_t color) {
     auto& [p1xy, p1zw, t1] = verts[1];
     auto& [p2xy, p2zw, t2] = verts[2];
 
-    auto [u0, v0] = t0.get2();
-    auto [u1, v1] = t1.get2();
-    auto [u2, v2] = t2.get2();
+    auto& [u0, v0] = t0;
+    auto& [u1, v1] = t1;
+    auto& [u2, v2] = t2;
 
-    auto [x0, y0] = p0xy.get2();
-    auto [z0, w0] = p0zw.get2();
+    auto [x0, y0] = p0xy;
+    auto [z0, w0] = p0zw;
 
-    auto [x1, y1] = p1xy.get2();
-    auto [z1, w1] = p1zw.get2();
+    auto [x1, y1] = p1xy;
+    auto [z1, w1] = p1zw;
 
-    auto [x2, y2] = p2xy.get2();
-    auto [z2, w2] = p2zw.get2();
+    auto [x2, y2] = p2xy;
+    auto [z2, w2] = p2zw;
 
     // flip the V Component to account for inverted UV coordinates
     v0 = 1.0 - v0;
     v1 = 1.0 - v1;
     v2 = 1.0 - v2;
 
-    Matrix<float, 4, 1> point_a = {(float)x0, (float)y0, (float)z0, (float)w0};
-    Matrix<float, 4, 1> point_b = {(float)x1, (float)y1, (float)z1, (float)w1};
-    Matrix<float, 4, 1> point_c = {(float)x2, (float)y2, (float)z2, (float)w2};
-    vec2f_t a_uv = {u0, v0};
-    vec2f_t b_uv = {u1, v1};
-    vec2f_t c_uv = {u2, v2};
+    Vector4f point_a = {(float)x0, (float)y0, (float)z0, (float)w0};
+    Vector4f point_b = {(float)x1, (float)y1, (float)z1, (float)w1};
+    Vector4f point_c = {(float)x2, (float)y2, (float)z2, (float)w2};
+
+    Vector2f a_uv = {u0, v0};
+    Vector2f b_uv = {u1, v1};
+    Vector2f c_uv = {u2, v2};
 
     // Render flat-bottom triangle
     float inv_slope_1 = 0;
@@ -461,7 +455,7 @@ void Renderer::rasterizeTriangle2(const Triangle& tri, uint32_t color) {
 }
 
 void Renderer::rasterizeTexturedTriangle(const Triangle& tri, const std::vector<uint32_t>& textureBuffer) {
-    std::array<std::tuple<vec2i_t, vec2f_t, vec2f_t>, 3> verts = {
+    std::array<std::tuple<Vector2i, Vector2f, Vector2f>, 3> verts = {
         {{{(int)tri.points[0].x(), (int)tri.points[0].y()}, {tri.points[0].z(), tri.points[0].w()}, tri.text_coords[0]},
          {{(int)tri.points[1].x(), (int)tri.points[1].y()}, {tri.points[1].z(), tri.points[1].w()}, tri.text_coords[1]},
          {{(int)tri.points[2].x(), (int)tri.points[2].y()}, {tri.points[2].z(), tri.points[2].w()}, tri.text_coords[2]}}};
@@ -475,18 +469,18 @@ void Renderer::rasterizeTexturedTriangle(const Triangle& tri, const std::vector<
     auto& [p1xy, p1zw, t1] = verts[1];
     auto& [p2xy, p2zw, t2] = verts[2];
 
-    auto [u0, v0] = t0.get2();
-    auto [u1, v1] = t1.get2();
-    auto [u2, v2] = t2.get2();
+    auto [u0, v0] = t0;
+    auto [u1, v1] = t1;
+    auto [u2, v2] = t2;
 
-    auto [x0, y0] = p0xy.get2();
-    auto [z0, w0] = p0zw.get2();
+    auto [x0, y0] = p0xy;
+    auto [z0, w0] = p0zw;
 
-    auto [x1, y1] = p1xy.get2();
-    auto [z1, w1] = p1zw.get2();
+    auto [x1, y1] = p1xy;
+    auto [z1, w1] = p1zw;
 
-    auto [x2, y2] = p2xy.get2();
-    auto [z2, w2] = p2zw.get2();
+    auto [x2, y2] = p2xy;
+    auto [z2, w2] = p2zw;
 
 
     // flip the V Component to account for inverted UV coordinates
@@ -494,12 +488,13 @@ void Renderer::rasterizeTexturedTriangle(const Triangle& tri, const std::vector<
     v1 = 1.0 - v1;
     v2 = 1.0 - v2;
 
-    Matrix<float, 4, 1> point_a = {(float)x0, (float)y0, (float)z0, (float)w0};
-    Matrix<float, 4, 1> point_b = {(float)x1, (float)y1, (float)z1, (float)w1};
-    Matrix<float, 4, 1> point_c = {(float)x2, (float)y2, (float)z2, (float)w2};
-    vec2f_t a_uv = {u0, v0};
-    vec2f_t b_uv = {u1, v1};
-    vec2f_t c_uv = {u2, v2};
+    Vector4f point_a = {(float)x0, (float)y0, (float)z0, (float)w0};
+    Vector4f point_b = {(float)x1, (float)y1, (float)z1, (float)w1};
+    Vector4f point_c = {(float)x2, (float)y2, (float)z2, (float)w2};
+
+    Vector2f a_uv = {u0, v0};
+    Vector2f b_uv = {u1, v1};
+    Vector2f c_uv = {u2, v2};
 
     ///////////////////////////////////////////////////////
     // Render the upper part of the triangle (flat-bottom)
@@ -557,23 +552,26 @@ void Renderer::rasterizeTexturedTriangle(const Triangle& tri, const std::vector<
 
 }
 
-Matrix<float, 4, 4> Renderer::lookAt(const vec3f_t& eye, const vec3f_t& target, const vec3f_t& up) {
-    auto z = target - eye;
+Eigen::Matrix4f Renderer::lookAt(const Vector3f& eye, const Vector3f& target,
+                                            const Vector3f& up) {
+    Vector3f z = target - eye;
     z.normalize();
 
-    auto x = up ^ z;
+    Vector3f x = up.cross(z);
     x.normalize();
 
-    auto y = z ^ x;
+    Vector3f y = z.cross(x);
 
     // | x.x   x.y   x.z  -dot(x,eye) |
     // | y.x   y.y   y.z  -dot(y,eye) |
     // | z.x   z.y   z.z  -dot(z,eye) |
     // |   0     0     0            1 |
-    return {x.x(), x.y(), x.z(), -(x * eye), 
-            y.x(), y.y(), y.z(), -(y * eye), 
-            z.x(), z.y(), z.z(), -(z * eye),
-                0,     0,     0,          1};
+    Eigen::Matrix4f out;
+    out << x.x(), x.y(), x.z(), -x.dot(eye), 
+           y.x(), y.y(), y.z(), -y.dot(eye),
+           z.x(), z.y(), z.z(), -z.dot(eye), 
+           0.f, 0.f, 0.f, 1.f;
+    return out;
 }
 
 void Renderer::renderColorBuffer() {
@@ -709,8 +707,8 @@ void Renderer::initializeFrustumPlanes(float fovX, float fovY, float zNear, floa
     frustumPlanes[FRUSTUMPLANES::FAR_PLANE]._normal = {0.f, 0.f, -1.f};  
 }
 
-Polygon Renderer::createPolygon(const vec3f_t& a, const vec3f_t& b, const vec3f_t& c,
-                                const vec2f_t& a_uv, const vec2f_t& b_uv, const vec2f_t& c_uv) {
+Polygon Renderer::createPolygon(const Vector3f& a, const Vector3f& b, const Vector3f& c,
+                                const Vector2f& a_uv, const Vector2f& b_uv, const Vector2f& c_uv) {
     return Polygon{.vertices = {a, b, c}, .textcoords = {a_uv, b_uv, c_uv}, .num_of_vertices = 3};
 }
 
@@ -726,24 +724,24 @@ void Renderer::clipPolygon(Polygon& polygon) {
 void Renderer::clipPolygonAgainstPlane(Polygon& polygon, FRUSTUMPLANES plane) {
     if (polygon.num_of_vertices == 0)
         return;
-    auto planePoint = frustumPlanes[plane]._point;
-    auto planeNormal = frustumPlanes[plane]._normal;
+    Vector3f planePoint = frustumPlanes[plane]._point;
+    Vector3f planeNormal = frustumPlanes[plane]._normal;
 
-    std::array<vec3f_t, MAX_NUM_POLY_VERTICES> insideVertices;
-    std::array<vec2f_t, MAX_NUM_POLY_VERTICES> insidetextCoords;
+    std::array<Vector3f, MAX_NUM_POLY_VERTICES> insideVertices;
+    std::array<Vector2f, MAX_NUM_POLY_VERTICES> insidetextCoords;
     int numberOfInsideVertices{0};
 
-    vec3f_t* currentVertex = &polygon.vertices[0];
-    vec2f_t* currentTextCoords = &polygon.textcoords[0];
+    Vector3f* currentVertex = &polygon.vertices[0];
+    Vector2f* currentTextCoords = &polygon.textcoords[0];
 
-    vec3f_t* previousVertex = &polygon.vertices[polygon.num_of_vertices - 1];
-    vec2f_t* previousTextCoords = &polygon.textcoords[polygon.num_of_vertices - 1];
+    Vector3f* previousVertex = &polygon.vertices[polygon.num_of_vertices - 1];
+    Vector2f* previousTextCoords = &polygon.textcoords[polygon.num_of_vertices - 1];
 
     auto current_dot = 0.f;
-    auto previous_dot = (*previousVertex - planePoint) * planeNormal;
+    auto previous_dot = (*previousVertex - planePoint).dot(planeNormal);
 
     while (currentVertex != &polygon.vertices[polygon.num_of_vertices]) {
-        current_dot = (*currentVertex - planePoint) * planeNormal;
+        current_dot = (*currentVertex - planePoint).dot(planeNormal);
 
         // If we changed from inside point to outside point or the oppsoite
         if(current_dot * previous_dot < 0) {
@@ -775,12 +773,12 @@ void Renderer::clipPolygonAgainstPlane(Polygon& polygon, FRUSTUMPLANES plane) {
         currentTextCoords++;
     }
     int i{0};
-    for (auto& insideVertex : insideVertices) {
+    for (Vector3f& insideVertex : insideVertices) {
         polygon.vertices[i] = insideVertex;
         ++i;
     }
     i = 0;
-    for (auto& insideTextCoord : insidetextCoords) {
+    for (Vector2f& insideTextCoord : insidetextCoords) {
         polygon.textcoords[i] = insideTextCoord;
         ++i;
         polygon.num_of_vertices = numberOfInsideVertices;
@@ -816,9 +814,8 @@ std::vector<Triangle> Renderer::trianglesFromPolygons(const Polygon& polygon) {
     return triangles_after_clipping;
 }
 
-Matrix<float, 4, 1> Renderer::project(Matrix<float, 4, 1>& point) { 
-    Matrix<float, 4, 1> vec =
-        _persProjMatrix * Matrix<float, 4, 1>{point.x(), point.y(), point.z(), 1.0f};
+Vector4f Renderer::project(Vector4f& point) { 
+    Vector4f vec = _persProjMatrix * Vector4f{point.x(), point.y(), point.z(), 1.0f};
     
     // perform perspective divide
     // w_component = vec(3, 0) is the original Z value of the 3rd point before projection
@@ -909,31 +906,35 @@ void Renderer::update() {
         _mesh.rotation.z() += (roationFactor * _deltaTime);
 
         //create the view matrix
-        Matrix<float, 4, 4> cameraYawRotation;
-        cameraYawRotation.setRotation(_camera._pitch, _camera._yaw, 0.f);
-        auto direction = cameraYawRotation * Matrix<float, 4, 1>{0.f, 0.f, 1.f, 1.f};
-        _camera._direction = {direction.x(), direction.y(), direction.z()};
+          
+        Eigen::Matrix3f cameraRotation = getRotationMatrix(_camera._pitch, 0.f, _camera._yaw);
 
-        auto target = _camera._position + _camera._direction;
-        _viewMatrix = lookAt(_camera._position, {target.x(), target.y(), target.z()}, {0.f, 1.f, 0.f});
+        _camera._direction = cameraRotation * Vector3f{0.f, 0.f, 1.f};
+
+        Vector3f target = _camera._position + _camera._direction;
+        _viewMatrix = lookAt(_camera._position, target, Vector3f{0.f, 1.f, 0.f});
 
         // create the world matrix
-        _worldMatrix.setEye();
-        _worldMatrix.setScale(_mesh.scale.x(), _mesh.scale.y(), _mesh.scale.z());
-        _worldMatrix.setTranslation(_mesh.translation.x(), _mesh.translation.y(),
-                                             _mesh.translation.z());
-        _worldMatrix.setRotation(_mesh.rotation.x(), _mesh.rotation.y(),
-                                          _mesh.rotation.z());
+        _worldMatrix = Eigen::Matrix4f::Identity();
+        Eigen::Matrix3f scaleMatrix = Eigen::Matrix3f::Identity();
+        scaleMatrix(0, 0) = _mesh.rotation.x();
+        scaleMatrix(1, 1) = _mesh.rotation.y();
+        scaleMatrix(2, 2) = _mesh.rotation.z();
+
+        Eigen::Matrix3f rotationMatrix =
+            getRotationMatrix(_mesh.rotation.x(), _mesh.rotation.y(), _mesh.rotation.z());
+        _worldMatrix.block<3, 3>(0, 0) = rotationMatrix * scaleMatrix;  // scaleMatrix is diagonal
+        _worldMatrix.block<3, 1>(0, 3) = _mesh.translation;
+
         for (auto& face : _mesh.faces) {
             int i{0};
-            std::array<vec3f_t, 3> face_vertices;
+            std::array<Vector3f, 3> face_vertices;
             face_vertices[0] = _mesh.vertices[face.a];
             face_vertices[1] = _mesh.vertices[face.b];
             face_vertices[2] = _mesh.vertices[face.c];
 
-            for (auto& vertex : face_vertices) {
-                Matrix<float, 4, 1> vec =
-                    _worldMatrix * Matrix<float, 4, 1>{vertex.x(), vertex.y(), vertex.z(), 1};
+            for (Vector3f& vertex : face_vertices) {
+                Vector4f vec = _worldMatrix * Vector4f{vertex.x(), vertex.y(), vertex.z(), 1};
                 vec = _viewMatrix * vec;
                 vertex.x() = vec(0, 0);
                 vertex.y() = vec(1, 0);
@@ -1004,7 +1005,7 @@ void Renderer::render(double timer_value) {
     for (auto& triangle : _lastTrianglesToRender) {
         uint32_t wireframe_color{0xFF00FF00};  // default wirferame color is green
         if (raster) {
-            auto light_intensity_factor = -(triangle.normal * _lightDirection);
+            auto light_intensity_factor = -(triangle.normal.dot(_lightDirection));
             auto color = calculateLightIntensityColor(triangle.color, light_intensity_factor);
             rasterizeTriangle2(triangle, color);
             wireframe_color = 0xFF000000;  // black
@@ -1032,11 +1033,11 @@ void Renderer::render(double timer_value) {
         timer_value_ = std::move(std::to_string(timer_value));
         t1 = t2;
     }
-    const vec2i_t dims1{100, 30};
+    const Vector2i dims1{100, 30};
     drawText(std::string("fps: "s + timer_value_), dims1, {(_windowWidth - dims1.x()) / 2, 40},
              stoi(timer_value_) < _fps ? false : true);
 
-    const vec2i_t dims2{40, 30};
+    const Vector2i dims2{40, 30};
     drawText("Profiles: ", {100, 30}, {40, 40}, false);
     drawText(" #1 ", dims2, {40, 70}, _currentRenderMode == RenderMode::WIREFRAME);
     drawText(" #2 ", dims2, {40, 100}, _currentRenderMode == RenderMode::WIREFRAME_VERTICES);
@@ -1061,10 +1062,10 @@ bool Renderer::loadObjFileData(const std::string& obj_file_path) {
     }
     char line[1024];
 
-    std::vector<vec2f_t> textureCoords;
+    std::vector<Vector2f> textureCoords;
 
     while (fgets(line, 1024, file)) {
-        vec3f_t vertex;
+        Vector3f vertex;
         // Vertex information
         if (strncmp(line, "v ", 2) == 0) {
             if (sscanf(line, "v %f %f %f", &vertex.x(), &vertex.y(), &vertex.z()) != 3) {
@@ -1074,7 +1075,7 @@ bool Renderer::loadObjFileData(const std::string& obj_file_path) {
             _mesh.vertices.push_back(vertex);
         }
 
-        vec2f_t textureCoord;
+        Vector2f textureCoord;
         //texture coordinates information
         if (strncmp(line, "vt ", 3) == 0) {
             if (sscanf(line, "vt %f %f", &textureCoord.x(), &textureCoord.y()) != 2) {
@@ -1111,37 +1112,37 @@ bool Renderer::loadObjFileData(const std::string& obj_file_path) {
     return 0 == fclose(file);
 }
 
-std::pair<bool, vec3f_t> Renderer::CullingCheck(const std::array<vec3f_t, 3>& face_vertices) {
-    auto vec_a = face_vertices[0];
-    auto vec_b = face_vertices[1];
-    auto vec_c = face_vertices[2];
+std::pair<bool, Vector3f> Renderer::CullingCheck(const std::array<Vector3f, 3>& face_vertices) {
+    Vector3f vec_a = face_vertices[0];
+    Vector3f vec_b = face_vertices[1];
+    Vector3f vec_c = face_vertices[2];
 
     // step1 calculate ab vector and ac vector
-    auto vec_ab = vec_b - vec_a;
-    auto vec_ac = vec_c - vec_a;
+    Vector3f vec_ab = vec_b - vec_a;
+    Vector3f vec_ac = vec_c - vec_a;
 
     // step2 calculate the normal
-    auto vec_face_normal = vec_ab ^ vec_ac;
+    Vector3f vec_face_normal = vec_ab.cross(vec_ac);
     // this line is important for lighting calculation, otherwise the light intensity will be wrong
     vec_face_normal.normalize();  
 
     //step3 find the camera ray (vector between camera origin and a point in the triangle)
-    auto vec_camera_ray = vec3f_t{0.0, 0.0, 0.0} - vec_a;
+    Vector3f vec_camera_ray = Vector3f::Zero() - vec_a;
 
     //step4 check how aligned the camera ray with face normal, if angle is less than 90 degree then we are looking at the back face
-    if (vec_face_normal * vec_camera_ray < 0)  // zero means cos(90), less than zero means more than cos(90) degree angle
+    if (vec_face_normal.dot(vec_camera_ray) < 0)  // zero means cos(90), less than zero means more than cos(90) degree angle
         return {true, vec_face_normal};  // back face
 
     return {false, vec_face_normal};  // front face
 }
 
-void Renderer::normalizeModel(std::vector<vec3f_t>& vertices) {
+void Renderer::normalizeModel(std::vector<Vector3f>& vertices) {
     if (vertices.empty())
         return;
 
     // Step 1: compute bounding box
-    vec3f_t min = {FLT_MAX, FLT_MAX, FLT_MAX};
-    vec3f_t max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+    Vector3f min = {FLT_MAX, FLT_MAX, FLT_MAX};
+    Vector3f max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
     for (const auto& v : vertices) {
         min.x() = std::min(min.x(), v.x());
@@ -1154,13 +1155,14 @@ void Renderer::normalizeModel(std::vector<vec3f_t>& vertices) {
     }
 
     // Step 2: compute center and extent
-    vec3f_t center = {(min.x() + max.x()) / 2.0f, (min.y() + max.y()) / 2.0f, (min.z() + max.z()) / 2.0f};
+    Vector3f center = {(min.x() + max.x()) / 2.0f, (min.y() + max.y()) / 2.0f,
+                       (min.z() + max.z()) / 2.0f};
 
-    vec3f_t size = {max.x() - min.x(), max.y() - min.y(), max.z() - min.z()};
+    Vector3f size = {max.x() - min.x(), max.y() - min.y(), max.z() - min.z()};
     float maxExtent = std::max({size.x(), size.y(), size.z()});
 
     // Step 3: normalize vertices
-    for (auto& v : vertices) {
+    for (Vector3f& v : vertices) {
         // translate to origin
         v.x() -= center.x();
         v.y() -= center.y();
@@ -1177,7 +1179,7 @@ void Renderer::destroyWindow() {
     // SDL_Quit();
 }
 
-void Renderer::drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos,
+void Renderer::drawText(std::string_view text, const Vector2i& dims, const Vector2i& pos,
                         bool enabledMode) {
     SDL_Color color{};
     if (enabledMode)

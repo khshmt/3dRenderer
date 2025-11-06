@@ -9,8 +9,7 @@
 // internal
 #include "Mesh.hpp"
 #include "timer.hpp"
-#include "vector.hpp"
-#include "matrix.hpp"
+#include "helperFuncs.hpp"
 // 3rd-Party_Libs
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -28,6 +27,15 @@
 #endif
 
 using namespace std::literals;
+
+using Eigen::Vector2f;
+using Eigen::Vector3f;
+using Eigen::Vector4f;
+
+using Eigen::Vector2i;
+using Eigen::Vector3i;
+using Eigen::Vector4i;
+
 
 enum class RenderMode {
     WIREFRAME,
@@ -72,40 +80,40 @@ public:
     void destroyWindow();
 
 private:
-    void drawText(std::string_view text, const vec2i_t& dims, const vec2i_t& pos, bool enabledMode);
+    void drawText(std::string_view text, const Vector2i& dims, const Vector2i& pos,
+                  bool enabledMode);
     void drawGrid();
     void drawPixel(int x, int y, uint32_t color);
-    void drawTrianglePixel(int x, int y, uint32_t color, const Matrix<float, 4, 1>& point_a,
-                           const Matrix<float, 4, 1>& point_b, const Matrix<float, 4, 1>& point_c);
-    void drawTexel(const vec2i_t& point, const std::vector<uint32_t>& texture,
-                   const Matrix<float, 4, 1>& a, const Matrix<float, 4, 1>& b,
-                   const Matrix<float, 4, 1>& c, const vec2f_t& uv0, const vec2f_t& uv1,
-                   const vec2f_t& uv2);
-    vec3f_t barycentric_weights(const vec2f_t& a, const vec2f_t& b, const vec2f_t& c,
-                                const vec2f_t& p);
+    void drawTrianglePixel(int x, int y, uint32_t color, const Vector4f& point_a,
+                           const Vector4f& point_b, const Vector4f& point_c);
+    void drawTexel(const Vector2i& point, const std::vector<uint32_t>& texture, const Vector4f& a,
+                   const Vector4f& b, const Vector4f& c, const Vector2f& uv0, const Vector2f& uv1,
+                   const Vector2f& uv2);
+    Vector3f barycentric_weights(const Vector2f& a, const Vector2f& b, const Vector2f& c,
+                                 const Vector2f& p);
     void drawRect(int x, int y, int width, int height, uint32_t color);
     void drawLine(int x0, int y0, int x1, int y1, uint32_t color);
     void drawTriangle(const Triangle& tri, uint32_t color);
     void rasterizeTexturedTriangle(const Triangle& tri, const std::vector<uint32_t>& textureBuffer);
     void rasterizeTriangle1(const Triangle& tri, uint32_t color);
     void rasterizeTriangle2(const Triangle& tri, uint32_t color);
-    void rasterizeFlatBottomTriangle(const vec2i_t& p0, const vec2i_t& p1, const vec2i_t& p2,
+    void rasterizeFlatBottomTriangle(const Vector2i& p0, const Vector2i& p1, const Vector2i& p2,
                                      uint32_t color);
-    void rasterizeFlatTopTriangle(const vec2i_t& p0, const vec2i_t& p1, const vec2i_t& p2,
+    void rasterizeFlatTopTriangle(const Vector2i& p0, const Vector2i& p1, const Vector2i& p2,
                                   uint32_t color);
-    Matrix<float, 4, 4> lookAt(const vec3f_t& eye, const vec3f_t& target, const vec3f_t& up);
+    Eigen::Matrix4f lookAt(const Vector3f& eye, const Vector3f& target, const Vector3f& up);
     void renderColorBuffer();
     void clearColorBuffer(uint32_t color);
-    void normalizeModel(std::vector<vec3f_t>& vertices);
-    std::pair<bool, vec3f_t> CullingCheck(const std::array<vec3f_t, 3>& face_vertices);
+    void normalizeModel(std::vector<Vector3f>& vertices);
+    std::pair<bool, Vector3f> CullingCheck(const std::array<Vector3f, 3>& face_vertices);
     void constructProjectionMatrix(float fov, float aspectRatio, float znear, float zfar);
     void initializeFrustumPlanes(float fovX, float fovY, float zNear, float zFar);
-    Polygon createPolygon(const vec3f_t& a, const vec3f_t& b, const vec3f_t& c, const vec2f_t& a_uv,
-                          const vec2f_t& b_uv, const vec2f_t& c_uv);
+    Polygon createPolygon(const Vector3f& a, const Vector3f& b, const Vector3f& c,
+                          const Vector2f& a_uv, const Vector2f& b_uv, const Vector2f& c_uv);
     std::vector<Triangle> trianglesFromPolygons(const Polygon& polygon);
     void clipPolygon(Polygon& polygon);
     void clipPolygonAgainstPlane(Polygon& polygon, FRUSTUMPLANES plane);
-    Matrix<float, 4, 1> project(Matrix<float, 4, 1>& point);
+    Vector4f project(Vector4f& point);
     uint32_t calculateLightIntensityColor(uint32_t original_color, float percentage_factor);
     bool loadObjFileData(const std::string& obj_file_path);
     void loadPNGTextureData(const std::string& fileName);
@@ -113,21 +121,21 @@ private:
 private:
     Mesh _mesh;
 
-    Matrix<float, 4, 4> _worldMatrix;
-    Matrix<float, 4, 4> _persProjMatrix;  // perspective projection matrix
-    Matrix<float, 4, 4> _viewMatrix;      // view/camera matrix
+    Eigen::Matrix<float, 4, 4> _worldMatrix = Eigen::Matrix4f::Identity();
+    Eigen::Matrix<float, 4, 4> _persProjMatrix = Eigen::Matrix4f::Zero();
+    Eigen::Matrix<float, 4, 4> _viewMatrix = Eigen::Matrix4f::Identity(); // view/camera matrix
 
     struct Camera {
-        vec3f_t _position = {0.0f, 0.0f, -2.0f};
-        vec3f_t _direction = {0.0f, 0.0f, 1.0f};
-        vec3f_t _forwardVelocity = {0.0f, 0.0f, 0.0f};
+        Vector3f _position = {0.0f, 0.0f, -2.0f};
+        Vector3f _direction = {0.0f, 0.0f, 1.0f};
+        Vector3f _forwardVelocity = {0.0f, 0.0f, 0.0f};
         float _yaw{0.0};  // roation around y axis ofthe camera
         float _pitch{0.0};  // rotation around x axis of the camera
     } _camera;
  
     struct FrustumPlane {
-        vec3f_t _point;
-        vec3f_t _normal;
+        Vector3f _point;
+        Vector3f _normal;
     };
 
     std::vector<Triangle> _trianglesToRender;
@@ -148,7 +156,7 @@ private:
         std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>(nullptr, SDL_DestroyTexture);
 
 
-    vec3f_t _lightDirection = {0.0, 0.0, 1.0};
+    Vector3f _lightDirection = {0.0, 0.0, 1.0};
 
     TTF_Font* _ttfTextRenerer = nullptr;
 
