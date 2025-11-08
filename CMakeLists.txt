@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.0)
-set(PROJECT_NAME "3Drenderer")
+set(PROJECT_NAME "3dRenderer")
 project(${PROJECT_NAME} LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -10,6 +10,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 find_package(SDL2 CONFIG REQUIRED)
 find_package(SDL2_ttf CONFIG REQUIRED)
 find_package(SDL2_image CONFIG REQUIRED)
+find_package(Eigen3 CONFIG REQUIRED)
 find_package(benchmark CONFIG REQUIRED)
 find_package(Tracy CONFIG REQUIRED)
 
@@ -20,7 +21,7 @@ target_link_libraries(Renderer PUBLIC
                         $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
                          $<IF:$<TARGET_EXISTS:SDL2_image::SDL2_image>,SDL2_image::SDL2_image,SDL2_image::SDL2_image-static>
                         $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
-
+                        Eigen3::Eigen
 )
 target_include_directories(Renderer PUBLIC ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/thirdparty/upng)
 target_compile_definitions(Renderer PUBLIC RENDERER_EXPORTS)
