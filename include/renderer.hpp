@@ -15,7 +15,6 @@
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_image.h>
 
-
 #ifdef _WIN32
 #ifdef RENDERER_EXPORTS
 #define RENDERER_API __declspec(dllexport)

@@ -45,7 +45,7 @@ bool Renderer::initializeWindow(bool fullscreen) {
             std::cerr << "Font file does not exist\n";
             return false;
         }
-        _ttfTextRenerer = TTF_OpenFont("Roboto-Regular.ttf", 24);
+        _ttfTextRenerer = TTF_OpenFont("Roboto-Regular.ttf", 18);
     }
 
     return _isRunning = true;
@@ -64,16 +64,18 @@ bool Renderer::setupWindow(const std::string& obj_file_path) {
     }
 
     auto aspectRatioY{static_cast<float>(_windowHeight) / _windowWidth};
-    auto aspectRatioX{static_cast<float>(_windowWidth) / static_cast<float>(_windowHeight)};
-   
-    auto fovY{60.f}; // 60 degrees
-    auto fovX{2 * atan(tan((fovY * M_PI / 180.f) / 2) * aspectRatioX)};  // fovX in radians
-
+    auto aspectRatioX{static_cast<float>(_windowWidth) / _windowHeight};
+    
+    // NOTE:
+    // radians = degrees * (pi / 180
+    // degrees = radians * (180 / pi)
+    auto fovY{60.f * M_PI / 180.f}; // fovY = 60 radians
+    auto fovX{2 * atan(tan((fovY) / 2) * aspectRatioX)};  // fovX in radians
     auto zNear{0.1f};
     auto zFar{100.f};
 
     constructProjectionMatrix(fovY, aspectRatioY, zNear, zFar);
-    initializeFrustumPlanes(fovX, (fovY * M_PI / 180.f) , zNear, zFar);
+    initializeFrustumPlanes(fovX, fovY, zNear, zFar);
 
     auto objloaded = loadObjFileData(obj_file_path);
     auto png_file_path = std::filesystem::path(obj_file_path).replace_extension(".png");
@@ -578,7 +580,6 @@ void Renderer::renderColorBuffer() {
     SDL_UpdateTexture(_colorBufferTexturePtr.get(), nullptr, _colorBuffer.data(),
                       (int)(sizeof(uint32_t) * _windowWidth)  //Pitch ==> size of one row in bytes
     );
-
     SDL_RenderCopy(_rendererPtr.get(), _colorBufferTexturePtr.get(), nullptr, nullptr);
 }
 
@@ -669,11 +670,14 @@ bool Renderer::getWindowState() {
 }
 
 void Renderer::constructProjectionMatrix(float fov, float aspectRatio, float znear, float zfar) {
+    // Perspective Projection Matrix
+    // https://www.youtube.com/watch?v=EqNcqBdrNyI
+    // ===========================================
     // | aspectRatio*fovRad    0               0                                           0 |
     // | 0                    fovRad           0                                           0 |
     // | 0                    0               zfar/(zfar-znear)   (-zfar*znear)/(zfar-znear) |
     // | 0                    0               1                                            0 |
-    float fovRad = 1.0f / tanf(fov * 0.5f / 180.0f * 3.14159f);
+    float fovRad = 1.0f / tanf(0.5f * fov);
     _persProjMatrix(0, 0) = aspectRatio * fovRad;
     _persProjMatrix(1, 1) = fovRad;
     _persProjMatrix(2, 2) = zfar / (zfar - znear);
@@ -906,22 +910,22 @@ void Renderer::update() {
         _mesh.rotation.z() += (roationFactor * _deltaTime);
 
         //create the view matrix
-          
-        Eigen::Matrix3f cameraRotation = getRotationMatrix(_camera._pitch, 0.f, _camera._yaw);
+
+        Eigen::Matrix3f cameraRotation = getRotationMatrix(_camera._pitch, _camera._yaw, 0.f);
 
         _camera._direction = cameraRotation * Vector3f{0.f, 0.f, 1.f};
 
-        Vector3f target = _camera._position + _camera._direction;
+        auto target = _camera._position + _camera._direction;
         _viewMatrix = lookAt(_camera._position, target, Vector3f{0.f, 1.f, 0.f});
 
         // create the world matrix
         _worldMatrix = Eigen::Matrix4f::Identity();
         Eigen::Matrix3f scaleMatrix = Eigen::Matrix3f::Identity();
-        scaleMatrix(0, 0) = _mesh.rotation.x();
-        scaleMatrix(1, 1) = _mesh.rotation.y();
-        scaleMatrix(2, 2) = _mesh.rotation.z();
+        scaleMatrix(0, 0) = _mesh.scale.x();
+        scaleMatrix(1, 1) = _mesh.scale.y();
+        scaleMatrix(2, 2) = _mesh.scale.z();
 
-        Eigen::Matrix3f rotationMatrix =
+        auto rotationMatrix =
             getRotationMatrix(_mesh.rotation.x(), _mesh.rotation.y(), _mesh.rotation.z());
         _worldMatrix.block<3, 3>(0, 0) = rotationMatrix * scaleMatrix;  // scaleMatrix is diagonal
         _worldMatrix.block<3, 1>(0, 3) = _mesh.translation;
@@ -933,12 +937,10 @@ void Renderer::update() {
             face_vertices[1] = _mesh.vertices[face.b];
             face_vertices[2] = _mesh.vertices[face.c];
 
-            for (Vector3f& vertex : face_vertices) {
-                Vector4f vec = _worldMatrix * Vector4f{vertex.x(), vertex.y(), vertex.z(), 1};
-                vec = _viewMatrix * vec;
-                vertex.x() = vec(0, 0);
-                vertex.y() = vec(1, 0);
-                vertex.z() = vec(2, 0);
+            for (auto& vertex : face_vertices) {
+                auto vec =
+                    _viewMatrix * _worldMatrix * Vector4f{vertex.x(), vertex.y(), vertex.z(), 1};
+                vertex = vec.block<3, 1>(0, 0);
             }
 
             // Face CUlling Check
