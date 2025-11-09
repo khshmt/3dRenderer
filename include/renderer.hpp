@@ -116,6 +116,7 @@ private:
     uint32_t calculateLightIntensityColor(uint32_t original_color, float percentage_factor);
     bool loadObjFileData(const std::string& obj_file_path);
     void loadPNGTextureData(const std::string& fileName);
+    void loadModelData(const std::string& file_path);
 
 private:
     Mesh _mesh;
@@ -143,6 +144,7 @@ private:
     std::vector<uint32_t> _meshTextureBuffer;
     std::vector<float> _zBuffer;
     std::vector<float> _zBufferAlternative;
+    std::vector<std::filesystem::path> _pathes;
     std::array<FrustumPlane, 6> frustumPlanes;
 
     std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> _windowPtr =
@@ -158,6 +160,8 @@ private:
     Vector3f _lightDirection = {0.0, 0.0, 1.0};
 
     TTF_Font* _ttfTextRenerer = nullptr;
+
+    std::vector<std::filesystem::path>::iterator _currentObjPathIt;
 
     int _windowWidth{};
     int _windowHeight{};

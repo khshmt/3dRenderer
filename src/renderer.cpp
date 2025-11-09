@@ -45,7 +45,7 @@ bool Renderer::initializeWindow(bool fullscreen) {
             std::cerr << "Font file does not exist\n";
             return false;
         }
-        _ttfTextRenerer = TTF_OpenFont("Roboto-Regular.ttf", 18);
+        _ttfTextRenerer = TTF_OpenFont("Roboto-Regular.ttf", 24);
     }
 
     return _isRunning = true;
@@ -67,7 +67,7 @@ bool Renderer::setupWindow(const std::string& obj_file_path) {
     auto aspectRatioX{static_cast<float>(_windowWidth) / _windowHeight};
     
     // NOTE:
-    // radians = degrees * (pi / 180
+    // radians = degrees * (pi / 180)
     // degrees = radians * (180 / pi)
     auto fovY{60.f * M_PI / 180.f}; // fovY = 60 radians
     auto fovX{2 * atan(tan((fovY) / 2) * aspectRatioX)};  // fovX in radians
@@ -77,16 +77,17 @@ bool Renderer::setupWindow(const std::string& obj_file_path) {
     constructProjectionMatrix(fovY, aspectRatioY, zNear, zFar);
     initializeFrustumPlanes(fovX, fovY, zNear, zFar);
 
-    auto objloaded = loadObjFileData(obj_file_path);
-    auto png_file_path = std::filesystem::path(obj_file_path).replace_extension(".png");
-    if (std::filesystem::exists(png_file_path)) {
-        loadPNGTextureData(png_file_path.string());
+    if (_pathes.empty()) {
+        auto dir_path = std::filesystem::path(obj_file_path).parent_path();
+        for (auto it : std::filesystem::directory_iterator(dir_path)) {
+            if (it.path().extension() == ".obj") {
+                _pathes.push_back(it.path());
+            }
+        }
+        _currentObjPathIt = _pathes.begin();
     }
-    _trianglesToRender.resize(_mesh.faces.size());
-    _lastTrianglesToRender.resize(_mesh.faces.size());
-    _zBuffer.resize(_windowWidth * _windowHeight);
-    std::fill(std::begin(_zBuffer), std::end(_zBuffer), 1.0);
-    return objloaded;
+    loadModelData(_pathes[0].string());
+    return true;
 }
 
 void Renderer::drawPixel(int x, int y, uint32_t color) {
@@ -600,6 +601,13 @@ void Renderer::processInput() {
                     case SDLK_ESCAPE:
                         _isRunning = false;
                         break;
+                    case SDLK_RETURN:
+                        _currentObjPathIt++;
+                        if (_currentObjPathIt == _pathes.end()) {
+                            _currentObjPathIt = _pathes.begin();
+                        }
+                        loadModelData(_currentObjPathIt->string());
+                        break;
                     case SDLK_SPACE:
                         _pause = !_pause;
                         break;
@@ -1056,6 +1064,21 @@ void Renderer::render(double timer_value) {
     std::fill(_zBuffer.begin(), _zBuffer.end(), 1.0f);
 }
 
+void Renderer::loadModelData(const std::string& file_Path) {
+    loadObjFileData(file_Path);
+    if (std::filesystem::exists(
+            std::filesystem::path(_currentObjPathIt->string()).replace_extension(".png"))) {
+        loadPNGTextureData(
+            std::filesystem::path(_currentObjPathIt->string()).replace_extension(".png").string());
+    } else {
+        _meshTextureBuffer.clear();
+    }
+    _trianglesToRender.resize(_mesh.faces.size());
+    _lastTrianglesToRender.resize(_mesh.faces.size());
+    _zBuffer.resize(_windowWidth * _windowHeight);
+    std::fill(std::begin(_zBuffer), std::end(_zBuffer), 1.0);
+}
+
 bool Renderer::loadObjFileData(const std::string& obj_file_path) {
     FILE* file = fopen(obj_file_path.c_str(), "r");
     if (!file) {
@@ -1065,7 +1088,10 @@ bool Renderer::loadObjFileData(const std::string& obj_file_path) {
     char line[1024];
 
     std::vector<Vector2f> textureCoords;
-
+    if (!_mesh.vertices.empty() || !_mesh.faces.empty()) {
+        _mesh.vertices.clear();
+        _mesh.faces.clear();
+    }
     while (fgets(line, 1024, file)) {
         Vector3f vertex;
         // Vertex information
