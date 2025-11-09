@@ -69,12 +69,19 @@ After building the project, you can run the executable directly from the build d
 
 | Key | Action |
 |-----|--------|
+| `1` | Wireframe Mode |
+| `2` | Wireframe with vertices |
+| `3` | Rasterization with lighting Mode |
+| `4` | Rasterization with lighting and Wireframe Mode |
+| `5` | Texture Mode |
+| `6` | Texture with Wireframe Mode |
 | `↑` / `↓` | Move camera **forward / backward** |
 | `←` / `→` | Rotate camera **yaw** (turn left/right) |
 | `W` / `S` | Adjust camera **pitch** (look up/down) |
 | `C` | **Enable** keyframe culling |
 | `X` | **Disable** keyframe culling |
 | `R` | **Disable or Enable** model rotation the default no rotation |
+| `Enter` | **Switch** model (in case the argument is in a directory has other models) |
 | `Space` | stop model rotation if it is rotating |
 | `Esc` | Exit the renderer |
 
